@@ -250,6 +250,14 @@ button.icon { padding: 4px 8px; }
 .today .next time { color: var(--muted); font-size: 12.5px; }
 .today .next time.late { color: var(--bad); }
 .today .none { color: var(--muted); }
+.today .more-active {
+  justify-self: start;
+  border: 0;
+  padding: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.today .more-active:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* labels inside the column: "Now" above active goals, a year marker before later ones */
 .band-label {

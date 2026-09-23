@@ -209,8 +209,18 @@ function todayHTML(lane, bands, { rule = true } = {}) {
           ${paceChip(current, d)}
         </div>
         ${nextHTML}
+        ${moreActiveHTML(bands, current)}
       </div>
     </div>`;
+}
+
+/** A reminder that the lane has other goals running besides the one featured. */
+function moreActiveHTML(bands, current) {
+  const others = bands.active.filter((g) => g.id !== current.id);
+  if (!others.length) return '';
+  const n = others.length;
+  return `<button class="more-active" data-action="jump-goal" data-id="${others[0].id}"
+      title="${esc(others.map((g) => g.name).join('\n'))}">+ ${n} more active goal${n === 1 ? '' : 's'}</button>`;
 }
 
 function cardHTML(goal, lane) {
@@ -702,8 +712,12 @@ document.addEventListener('click', async (e) => {
   if (!el || el.matches('input')) return;
   const { action, id, goal, lane } = el.dataset;
   switch (action) {
-    case 'jump': {
-      const card = [...document.querySelectorAll('.card')].find((c) => c.dataset.flags.split(' ').includes(el.dataset.kind));
+    case 'jump':
+    case 'jump-goal': {
+      const card =
+        action === 'jump-goal'
+          ? document.querySelector(`#board .card[data-goal="${id}"]`)
+          : [...document.querySelectorAll('.card')].find((c) => c.dataset.flags.split(' ').includes(el.dataset.kind));
       if (!card) return;
       card.closest('details')?.setAttribute('open', '');
       card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center', inline: 'center' });
