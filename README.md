@@ -116,8 +116,9 @@ viewer's local date.
 
 ## Layout rules
 
-- **Today** sits at the top of every lane: a sticky rule, drawn continuously
-  across the columns, over a panel with the lane's current goal (the
+- **Today** sits at the top of every lane, pinned while you scroll: a single
+  "Today" label in the left column (like the year labels), and in each lane
+  a panel with the lane's current goal (the
   soonest-due active one, or the next upcoming one if none is active) and
   its next unchecked milestone. If that goal has no open milestones, the
   earliest one from the lane's other active goals shows instead. Checking
@@ -131,6 +132,7 @@ viewer's local date.
   **Past** (collapsed). Rows line up across lanes, so
   2028 starts at the same height everywhere, leaving blank space where a
   lane has less in a given year. Goals within a row are sorted by due date.
+  A pinned line under the Today panels divides them from the scrolling rows.
   A single year label sits in a left-hand column and stays pinned under the
   lane heads while you scroll through that year; the next year's label
   takes over when its row arrives.

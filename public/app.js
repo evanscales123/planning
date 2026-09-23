@@ -185,7 +185,7 @@ function paceChip(goal, d) {
  */
 function todayHTML(lane, bands, { rule = true } = {}) {
   const current = bands.current;
-  const head = rule ? `<div class="today-rule"><span>Today</span></div>` : '';
+  const head = rule ? `<div class="today-rule bare"></div>` : '';
   if (!current) {
     return `<div class="today" style="${laneColorStyle(lane)}">${head}<div class="today-body"><span class="none">Nothing active</span></div></div>`;
   }
@@ -354,12 +354,12 @@ function render() {
   const rowCount = 1 + rows.length - (hasPast ? 0 : 1);
   const gutter = [
     `<div class="gutter-bg" style="grid-row:1 / span ${rowCount}"></div>`,
-    `<div class="gutter-head" style="grid-column:1;grid-row:1"></div>`,
+    `<div class="gutter-head" style="grid-column:1;grid-row:1"><span class="gutter-today">Today</span></div>`,
   ];
   rows.forEach((row, i) => {
     if (row === 'past' && !hasPast) return;
     const label = row === 'now' ? thisYear : row === 'past' ? 'Past' : row;
-    gutter.push(`<div class="row-rule" style="grid-row:${i + 2}"></div>`);
+    if (i > 0) gutter.push(`<div class="row-rule" style="grid-row:${i + 2}"></div>`);
     gutter.push(`<div class="gutter-label ${row === 'now' ? 'current' : ''}" style="grid-column:1;grid-row:${i + 2}">${label}</div>`);
   });
   board.innerHTML = gutter.join('') + cells.join('');
@@ -370,7 +370,11 @@ function render() {
 /** Year labels stick just below the lane heads, so they need the heads' height. */
 function syncHeadHeight() {
   const head = board.querySelector('.lane-head');
-  if (head) board.style.setProperty('--head-h', `${head.getBoundingClientRect().height}px`);
+  if (!head) return;
+  board.style.setProperty('--head-h', `${head.getBoundingClientRect().height}px`);
+  // and the gutter's "Today" label lines up with the top of the Today panels
+  const panel = head.querySelector('.today-body');
+  if (panel) board.style.setProperty('--today-top', `${panel.getBoundingClientRect().top - head.getBoundingClientRect().top}px`);
 }
 window.addEventListener('resize', syncHeadHeight);
 
