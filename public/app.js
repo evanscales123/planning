@@ -169,6 +169,13 @@ function renderRoundup() {
     : `<span class="chip ok">All on track</span>`;
 }
 
+/** ↑ or ↓ after the KPI label: which way is better. */
+function directionArrow(goal) {
+  const lower = goal.direction === 'lower';
+  const label = lower ? 'Lower is better' : 'Higher is better';
+  return `<span class="dir" title="${label}" aria-label="${label}">${lower ? '↓' : '↑'}</span>`;
+}
+
 function paceChip(goal, d) {
   // Reached (or all milestones done) replaces the pace: it's one or the other.
   if (d.status === 'Reached' || d.status === 'Done') return `<span class="pace reached">${d.status}</span>`;
@@ -272,7 +279,7 @@ function cardHTML(goal, lane) {
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
         ${paceChip(goal, d)}
       </div>
-      ${d.kpi ? `<div class="kpi">${esc(goal.kpi)} · ${goal.direction === 'lower' ? 'lower' : 'higher'} is better</div>` : ''}
+      ${d.kpi ? `<div class="kpi">${esc(goal.kpi)} ${directionArrow(goal)}</div>` : ''}
       <dl class="nums">${nums}</dl>
       <div class="bar" title="${barTitle}">
         <span class="fill" style="width:${(d.progress * 100).toFixed(1)}%"></span>

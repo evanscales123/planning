@@ -322,6 +322,7 @@ button.icon { padding: 4px 8px; }
 .card-head h3 button { border: 0; padding: 0; color: var(--text); text-align: left; font-weight: inherit; }
 .card-head h3 button:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
 .kpi { color: var(--muted); font-size: 12.5px; margin-top: -4px; }
+.kpi .dir { color: var(--muted); font-weight: 600; margin-left: 2px; cursor: help; }
 
 .pace {
   display: inline-flex;
