@@ -12,7 +12,7 @@ import {
 const UNITS = ['$', '%', 'count', 'days', 'weeks', 'score'];
 const LANE_COLORS = ['#4f6d8f', '#8a6d3b', '#5b7f5b', '#8f4f6d', '#6d5b8f', '#3b7f7f', '#8f6d4f'];
 
-let state = { lanes: [], goals: [], milestones: [], touchpoints: [] };
+let state = { companies: [], lanes: [], goals: [], milestones: [], touchpoints: [] };
 const openPast = new Set(); // lane ids whose "Past" section is expanded
 const today = () => localToday();
 
@@ -114,6 +114,7 @@ function removeRow(table, id) {
 }
 
 const byId = (table, id) => state[table].find((r) => r.id === Number(id));
+const companiesSorted = () => [...state.companies].sort((a, b) => a.name.localeCompare(b.name));
 const lanesSorted = () => [...state.lanes].sort((a, b) => a.order - b.order || a.id - b.id);
 
 // ---- rendering ------------------------------------------------------------
@@ -262,6 +263,7 @@ function render() {
   const hasPast = perLane.some(({ bands }) => bands.past.length);
 
   board.style.setProperty('--lanes', lanes.length);
+  const anyCompany = lanes.some((l) => byId('companies', l.companyId));
   const cells = [];
   const index = [];
   perLane.forEach(({ lane, bands }, col) => {
@@ -270,8 +272,10 @@ function render() {
     const title = `<div class="lane-title"><span class="dot" style="${style}"></span>
         <h2><button data-action="edit-lane" data-id="${lane.id}" title="Edit lane">${esc(lane.name)}</button></h2>
         <button class="add" data-action="add-goal" data-lane="${lane.id}" title="Add goal to ${esc(lane.name)}">+ Goal</button></div>`;
-    index.push(`<a href="#lane-${lane.id}"><div class="lane-title"><span class="dot" style="${style}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
-    cells.push(`<div class="lane-head ${col < lanes.length - 1 ? 'has-next' : ''}" id="lane-${lane.id}" style="${style};${at(0)}">${title}${todayHTML(lane, bands)}</div>`);
+    const company = byId('companies', lane.companyId);
+    const eyebrow = anyCompany ? `<div class="eyebrow">${company ? esc(company.name) : ''}</div>` : '';
+    index.push(`<a href="#lane-${lane.id}">${company ? `<div class="eyebrow">${esc(company.name)}</div>` : ''}<div class="lane-title"><span class="dot" style="${style}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
+    cells.push(`<div class="lane-head ${col < lanes.length - 1 ? 'has-next' : ''}" id="lane-${lane.id}" style="${style};${at(0)}">${eyebrow}${title}${todayHTML(lane, bands)}</div>`);
 
     const empty = !bands.active.length && !bands.ahead.length && !bands.past.length;
     rows.forEach((row, i) => {
@@ -374,6 +378,8 @@ function laneModal(lane) {
   openModal(
     `<h2>${lane ? 'Edit lane' : 'New lane'}</h2>
      <label>Name<input name="name" required maxlength="200" value="${esc(lane?.name)}"></label>
+     <label>Company<select name="companyId">${options([['', 'None'], ...companiesSorted().map((c) => [c.id, c.name])], lane?.companyId ?? '')}</select></label>
+     <p class="hint">Companies are managed in Settings.</p>
      <div class="row">
        <label>Color<input type="color" name="color" value="${esc(color)}"></label>
        ${
@@ -398,7 +404,7 @@ function laneModal(lane) {
         state.touchpoints = state.touchpoints.filter((t) => !goalIds.has(t.goalId));
         return;
       }
-      const body = { name: data.name, color: data.color };
+      const body = { name: data.name, color: data.color, companyId: data.companyId ? Number(data.companyId) : null };
       if (!lane) {
         upsert('lanes', await api('POST', '/lanes', body));
         return;
@@ -413,6 +419,36 @@ function laneModal(lane) {
       }
     },
   );
+}
+
+/** Settings: the list of companies lanes can belong to. */
+function settingsModal() {
+  const rowsHTML = () =>
+    companiesSorted()
+      .map((c) => {
+        const n = state.lanes.filter((l) => l.companyId === c.id).length;
+        return `<li><input name="company-${c.id}" value="${esc(c.name)}" required maxlength="200" aria-label="Company name">
+          <span class="count">${n} lane${n === 1 ? '' : 's'}</span>
+          <button type="button" class="del" data-action="del-company" data-id="${c.id}" title="Delete company" aria-label="Delete ${esc(c.name)}">×</button></li>`;
+      })
+      .join('') || `<li class="none">No companies yet.</li>`;
+  openModal(
+    `<h2>Settings</h2>
+     <h3 class="section">Companies</h3>
+     <p class="hint">Lanes can belong to a company; it shows above the lane name. Assign one when editing a lane.</p>
+     <ul class="companies" id="company-list">${rowsHTML()}</ul>
+     <label>Add a company<input name="newCompany" maxlength="200" placeholder="Company name"></label>
+     ${buttons('Save')}`,
+    async (data) => {
+      for (const c of state.companies) {
+        const name = (data[`company-${c.id}`] ?? '').trim();
+        if (name && name !== c.name) upsert('companies', await api('PATCH', `/companies/${c.id}`, { name }));
+      }
+      const added = (data.newCompany || '').trim();
+      if (added) upsert('companies', await api('POST', '/companies', { name: added }));
+    },
+  );
+  modalForm.refreshHistory = () => ($('#company-list').innerHTML = rowsHTML());
 }
 
 function goalModal(goal, laneId) {
@@ -611,6 +647,23 @@ document.addEventListener('click', async (e) => {
   if (!el || el.matches('input')) return;
   const { action, id, goal, lane } = el.dataset;
   switch (action) {
+    case 'settings':
+      return settingsModal();
+    case 'del-company': {
+      const c = byId('companies', id);
+      const n = state.lanes.filter((l) => l.companyId === c.id).length;
+      if (!confirm(`Delete "${c.name}"?${n ? ` ${n} lane${n === 1 ? '' : 's'} will have no company.` : ''}`)) return;
+      try {
+        await api('DELETE', `/companies/${id}`);
+        removeRow('companies', c.id);
+        state.lanes.forEach((l) => l.companyId === c.id && (l.companyId = null));
+        modalForm.refreshHistory?.();
+        render();
+      } catch (err) {
+        showError(err.message);
+      }
+      return;
+    }
     case 'add-lane':
       return laneModal();
     case 'edit-lane':

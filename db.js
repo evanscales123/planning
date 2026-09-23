@@ -15,6 +15,10 @@ export function createPool(connectionString = process.env.DATABASE_URL) {
 }
 
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS companies (
+  id    SERIAL PRIMARY KEY,
+  name  TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lanes (
   id          SERIAL PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -54,7 +58,10 @@ CREATE TABLE IF NOT EXISTS touchpoints (
 );
 CREATE INDEX IF NOT EXISTS touchpoints_goal_idx ON touchpoints(goal_id);
 
--- KPI fields are optional (a goal can be milestone-only); relax older databases.
+-- Upgrades for databases created by earlier versions.
+-- A lane can belong to a company (optional).
+ALTER TABLE lanes ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL;
+-- KPI fields are optional (a goal can be milestone-only).
 ALTER TABLE goals ALTER COLUMN unit DROP NOT NULL;
 ALTER TABLE goals ALTER COLUMN direction DROP NOT NULL;
 ALTER TABLE goals ALTER COLUMN baseline DROP NOT NULL;
@@ -67,11 +74,19 @@ export async function migrate(pool) {
 
 // API field name → column, plus the kind used for validation.
 export const TABLES = {
+  companies: {
+    fields: {
+      name: ['name', 'text'],
+    },
+    required: ['name'],
+    orderBy: 'name, id',
+  },
   lanes: {
     fields: {
       name: ['name', 'text'],
       order: ['sort_order', 'int'],
       color: ['color', 'color'],
+      companyId: ['company_id', 'id?'],
     },
     required: ['name'],
     orderBy: 'sort_order, id',
@@ -151,10 +166,13 @@ function coerce(kind, key, value) {
       if (s.length > 5000) fail('too long');
       return s;
     }
+    case 'id?':
+      if (value === null || value === '' || value === undefined) return null;
+    // falls through
     case 'int':
     case 'id': {
       const n = Number(value);
-      if (!Number.isInteger(n) || (kind === 'id' && n <= 0)) fail('must be an integer');
+      if (!Number.isInteger(n) || (kind !== 'int' && n <= 0)) fail('must be an integer');
       return n;
     }
     case 'number': {

@@ -10,6 +10,7 @@
 // Both can be mixed. Keys may be camelCase or snake_case. A goal's "notes"
 // are appended to its description, and "draft": true is noted there too.
 // Goals may leave baseline/target null, or omit the KPI entirely.
+// A lane's "company": "<name>" links it to that company (created if needed).
 // Other keys (ids, lane missions, milestone notes, meta) are ignored.
 
 import fs from 'node:fs';
@@ -75,6 +76,7 @@ export function normalizePlan(raw) {
       name,
       color: (typeof l === 'object' && pick(l, 'color', 'colour')) || PALETTE[i % PALETTE.length],
       order: (typeof l === 'object' && pick(l, 'order', 'sort_order')) ?? i,
+      company: (typeof l === 'object' && pick(l, 'company')) || null,
       goals: ((typeof l === 'object' && l.goals) || []).map((g) => normGoal(g, `lane "${name}"`)),
     };
   });
@@ -119,6 +121,7 @@ function validatePlan(plan) {
     }
   };
   return plan.lanes.map((l) => ({
+    company: l.company ? wrap(`lane "${l.name}"`, () => validate('companies', { name: l.company }).name) : null,
     row: wrap(`lane "${l.name}"`, () => validate('lanes', { name: l.name, color: l.color, order: l.order})),
     goals: l.goals.map((g) => {
       const where = `${g.where}, goal "${g.name}"`;
@@ -150,9 +153,16 @@ export async function seed(pool, raw, { reset = false } = {}) {
   const counts = { lanes: 0, goals: 0, milestones: 0, touchpoints: 0 };
   try {
     await client.query('BEGIN');
-    if (reset) await client.query('TRUNCATE lanes, goals, milestones, touchpoints RESTART IDENTITY CASCADE');
+    if (reset) await client.query('TRUNCATE companies, lanes, goals, milestones, touchpoints RESTART IDENTITY CASCADE');
+    const companyIds = new Map();
     for (const lane of lanes) {
-      const laneId = await insert(client, 'lanes', lane.row);
+      if (lane.company && !companyIds.has(lane.company.toLowerCase())) {
+        companyIds.set(lane.company.toLowerCase(), await insert(client, 'companies', { name: lane.company }));
+      }
+      const laneId = await insert(client, 'lanes', {
+        ...lane.row,
+        ...(lane.company ? { company_id: companyIds.get(lane.company.toLowerCase()) } : {}),
+      });
       counts.lanes++;
       for (const goal of lane.goals) {
         const goalId = await insert(client, 'goals', { ...goal.row, lane_id: laneId });

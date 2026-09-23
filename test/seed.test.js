@@ -34,4 +34,8 @@ test('the real plan.json validates end to end', async () => {
   const burn = plan.lanes[0].goals.find((g) => g.name.startsWith('Hold household burn'));
   assert.equal(burn.baseline, undefined);
   assert.match(burn.description, /Draft: target not confirmed/);
+  assert.deepEqual(
+    plan.lanes.map((l) => l.company),
+    [null, 'May Street', null, 'Evan Scales Visuals', 'Evan Scales Visuals', null],
+  );
 });

@@ -132,6 +132,11 @@ viewer's local date.
 - Card tints: warm orange for goals that need attention (behind pace,
   overdue or stale), light green once a goal is reached (or, without a KPI,
   every milestone is checked). The same tint shows in the Today panel.
+- **Companies** (Settings in the top bar) are an optional label for a lane,
+  shown as a small eyebrow above the lane name, to make clear where a lane
+  lives financially. Assign one when editing a lane; deleting a company
+  just clears it from its lanes. In plan.json, give a lane
+  `"company": "<name>"`.
 - Logging a touchpoint shows the goal's unit in the value box, summarizes
   the last touchpoint, and warns if one already exists on the chosen date.
 - Under 760px wide the columns stack and the Today panels become an index

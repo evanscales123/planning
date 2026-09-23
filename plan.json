@@ -26,7 +26,7 @@
       ]
     },
     {
-      "key": "may-street", "name": "May Street", "order": 2, "color": "#1f5e4b",
+      "key": "may-street", "company": "May Street", "name": "May Street", "order": 2, "color": "#1f5e4b",
       "goal": "Retained production partner to a roster of institutions, running on systems smooth enough that most projects don't need Evan on set or in the edit.",
       "goals": [
         { "key": "ms-systems", "name": "Systems: the machine exists", "kpi": "Projects without Evan on set or in edit", "unit": "%", "direction": "higher", "baseline": 0, "target": 15, "start": "2026-09-15", "due": "2027-06-30",
@@ -84,7 +84,7 @@
       ]
     },
     {
-      "key": "esv-institutional", "name": "ESV · Nonprofit + corporate", "order": 4, "color": "#a86214",
+      "key": "esv-institutional", "company": "Evan Scales Visuals", "name": "ESV · Nonprofit + corporate", "order": 4, "color": "#a86214",
       "goal": "A short roster of the best institutions paying a premium day rate for editorial-grade images. Fewer days a year, more money, better pictures.",
       "goals": [
         { "key": "esv-portfolio", "name": "Portfolio: the work exists before the pitch", "kpi": "Portfolio pieces at the premium tier", "unit": "count", "direction": "higher", "baseline": 0, "target": 2, "start": "2026-09-15", "due": "2027-12-31",
@@ -105,7 +105,7 @@
       ]
     },
     {
-      "key": "esv-weddings", "name": "ESV · Weddings", "order": 5, "color": "#b04a63",
+      "key": "esv-weddings", "company": "Evan Scales Visuals", "name": "ESV · Weddings", "order": 5, "color": "#b04a63",
       "goal": "A few weddings a year under Evan's name at a premium, while shooting second for the best photographers in the market.",
       "goals": [
         { "key": "wed-bench", "name": "Bench: 15 second-shooter days", "kpi": "Second-shooter days per year", "unit": "days", "direction": "higher", "baseline": 0, "target": 15, "start": "2026-09-15", "due": "2027-12-31", "draft": true,
