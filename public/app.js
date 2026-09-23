@@ -169,6 +169,8 @@ function renderRoundup() {
 }
 
 function paceChip(goal, d) {
+  // Reached (or all milestones done) replaces the pace: it's one or the other.
+  if (d.status === 'Reached' || d.status === 'Done') return `<span class="pace reached">${d.status}</span>`;
   if (d.phase === 'ahead' && d.current === null) return '';
   if (!d.kpi) return d.total ? `<span class="pace none">${d.done} of ${d.total}</span>` : '';
   if (d.pace) return `<span class="pace ${d.pace}" title="Expected today ${esc(fmtVal(d.expectedToday, goal.unit))}">${PACE_LABEL[d.pace]}</span>`;
@@ -217,11 +219,14 @@ function cardHTML(goal, lane) {
   const ms = sortMilestones(goalMilestones(goal.id));
   const statusClass = d.status.replace(/\s+/g, '-');
   const notStarted = d.phase === 'ahead' && d.current === null;
+  const finished = d.status === 'Reached' || d.status === 'Done';
   const meta = [
     notStarted
       ? `<span class="status">Starts ${fmtDate(goal.startDate)}</span>`
-      : `<span class="status ${statusClass}">${d.status}</span>`,
-    d.gap !== null ? `<span title="Current minus expected today (${esc(fmtVal(d.expectedToday, goal.unit))})">${fmtSigned(d.gap, goal.unit)} vs pace</span>` : '',
+      : finished
+        ? ''
+        : `<span class="status ${statusClass}">${d.status}</span>`,
+    d.gap !== null && !finished ? `<span title="Current minus expected today (${esc(fmtVal(d.expectedToday, goal.unit))})">${fmtSigned(d.gap, goal.unit)} vs pace</span>` : '',
     d.latest ? `<span title="${esc(d.latest.note)}">Last ${fmtDate(d.latest.date)}</span>` : '',
   ].join('');
   const milestones = ms.length
@@ -295,7 +300,7 @@ function render() {
   const cells = [];
   const index = [];
   perLane.forEach(({ lane, bands }, col) => {
-    const at = (row) => `grid-column:${col + 1};grid-row:${row + 1}`;
+    const at = (row) => `grid-column:${col + 2};grid-row:${row + 1}`;
     const style = laneColorStyle(lane);
     const title = `<div class="lane-title"><span class="dot" style="${style}"></span>
         <h2><button data-action="edit-lane" data-id="${lane.id}" title="Edit lane">${esc(lane.name)}</button></h2>
@@ -333,9 +338,31 @@ function render() {
           ${label ? `<div class="band-label"><span>${label}</span></div>` : ''}${body}</div>`);
     });
   });
-  board.innerHTML = cells.join('');
+  // Column 1 is a gutter holding one label per row (the year, or Past). Each label
+  // sticks under the lane heads while its row scrolls by, then the next row's
+  // label takes over. A hairline marks where each row starts, across all lanes.
+  const rowCount = 1 + rows.length - (hasPast ? 0 : 1);
+  const gutter = [
+    `<div class="gutter-bg" style="grid-row:1 / span ${rowCount}"></div>`,
+    `<div class="gutter-head" style="grid-column:1;grid-row:1"></div>`,
+  ];
+  rows.forEach((row, i) => {
+    if (row === 'past' && !hasPast) return;
+    const label = row === 'now' ? thisYear : row === 'past' ? 'Past' : row;
+    gutter.push(`<div class="row-rule" style="grid-row:${i + 2}"></div>`);
+    gutter.push(`<div class="gutter-label ${row === 'now' ? 'current' : ''}" style="grid-column:1;grid-row:${i + 2}">${label}</div>`);
+  });
+  board.innerHTML = gutter.join('') + cells.join('');
+  syncHeadHeight();
   indexNav.innerHTML = `<div class="today-rule"><span>Today</span></div>${index.join('')}`;
 }
+
+/** Year labels stick just below the lane heads, so they need the heads' height. */
+function syncHeadHeight() {
+  const head = board.querySelector('.lane-head');
+  if (head) board.style.setProperty('--head-h', `${head.getBoundingClientRect().height}px`);
+}
+window.addEventListener('resize', syncHeadHeight);
 
 // ---- modals ---------------------------------------------------------------
 

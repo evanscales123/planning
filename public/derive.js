@@ -142,7 +142,7 @@ export function deriveGoal(goal, touchpoints, today, milestones = []) {
     expectedToday,
     gap,
     pace: gap === null ? null : paceOf(goal, gap, baseline),
-    progress: progressOf(goal, current, baseline),
+    progress: status === 'Reached' ? 1 : progressOf(goal, current, baseline),
     status,
   };
 }

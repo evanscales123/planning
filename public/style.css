@@ -128,15 +128,41 @@ button.icon { padding: 4px 8px; }
   min-height: 0;
   overflow: auto;
   display: grid;
-  grid-template-columns: repeat(var(--lanes, 1), minmax(290px, 460px));
+  grid-template-columns: 64px repeat(var(--lanes, 1), minmax(290px, 460px));
   align-content: start;
   align-items: start;
   column-gap: 16px;
-  padding: 0 20px 40px;
+  padding: 0 20px 40px 0;
 }
+/* left gutter: one sticky label per time row (this year, each later year, Past) */
+.gutter-head {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  align-self: stretch;
+  background: var(--bg);
+}
+.gutter-label {
+  position: sticky;
+  top: var(--head-h, 0px);
+  left: 0;
+  z-index: 3;
+  align-self: start;
+  padding: 16px 0 8px 20px;
+  background: var(--bg);
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.gutter-label.current { color: var(--text); }
+.row-rule { grid-column: 2 / -1; align-self: start; height: 1px; background: var(--line); }
+.gutter-bg { grid-column: 1; position: sticky; left: 0; z-index: 2; align-self: stretch; background: var(--bg); }
 /* one lane's share of a time band (Now, a year, Past) */
 .cell { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; min-width: 0; }
-.cell.vacant .band-label span { visibility: hidden; }
+.cell .band-label { display: none; }
 .board > .empty { grid-column: 1 / -1; margin: 40px auto; color: var(--muted); text-align: center; }
 .lane-head {
   align-self: stretch; /* equal heights, so the sticky row has no ragged gaps */
@@ -271,6 +297,7 @@ button.icon { padding: 4px 8px; }
 .pace.on { color: var(--on); }
 .pace.behind { color: var(--behind); }
 .pace.none { color: var(--faint); }
+.pace.reached { color: var(--ahead); }
 .pace.none::before { background: transparent; border: 1px solid currentColor; }
 
 .nums { display: grid; grid-template-columns: 1fr 1fr auto; gap: 4px 10px; margin: 0; }
@@ -338,6 +365,8 @@ details.past .card { opacity: 0.85; }
   .index .lane-title { margin: 0; }
   .board { display: block; overflow: visible; padding: 0 16px 40px; }
   .cell.vacant { display: none; }
+  .cell .band-label { display: flex; }
+  .gutter-head, .gutter-label, .row-rule { display: none; }
   .band-label::before { display: none; }
   .lane-head { position: static; padding-bottom: 6px; margin-top: 28px; scroll-margin-top: 8px; }
   .lane-head .today { display: none; }

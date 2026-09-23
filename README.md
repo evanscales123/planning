@@ -129,6 +129,10 @@ viewer's local date.
   **Past** (collapsed). Rows line up across lanes, so
   2028 starts at the same height everywhere, leaving blank space where a
   lane has less in a given year. Goals within a row are sorted by due date.
+  A single year label sits in a left-hand column and stays pinned under the
+  lane heads while you scroll through that year; the next year's label
+  takes over when its row arrives.
+- A reached goal shows **Reached** in place of its pace (one or the other).
 - Card tints: warm orange for goals that need attention (behind pace,
   overdue or stale), light green once a goal is reached (or, without a KPI,
   every milestone is checked). The same tint shows in the Today panel.
