@@ -141,6 +141,33 @@ function todayLong() {
   return new Date(`${today()}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/** What the header roundup counts a goal under (only goals that have started). */
+function flagsOf(goal, d) {
+  if (d.phase === 'ahead') return [];
+  const flags = [];
+  if (d.status === 'Overdue') flags.push('overdue');
+  else if (d.pace === 'behind') flags.push('behind');
+  if (d.status === 'Stale') flags.push('stale');
+  if (goalMilestones(goal.id).some((m) => !m.done && m.date < today())) flags.push('late-ms');
+  return flags;
+}
+
+/** The short status line next to today's date; each count jumps to its first card. */
+function renderRoundup() {
+  const counts = { behind: 0, overdue: 0, stale: 0 };
+  for (const g of state.goals) for (const f of flagsOf(g, deriveFor(g))) if (f in counts) counts[f]++;
+  const lateMs = state.milestones.filter((m) => !m.done && m.date < today()).length;
+  const items = [
+    ['behind', counts.behind, (n) => `${n} goal${n === 1 ? '' : 's'} behind`],
+    ['overdue', counts.overdue, (n) => `${n} overdue`],
+    ['stale', counts.stale, (n) => `${n} stale`],
+    ['late-ms', lateMs, (n) => `${n} milestone${n === 1 ? '' : 's'} past due`],
+  ].filter(([, n]) => n);
+  $('#roundup').innerHTML = items.length
+    ? items.map(([kind, n, label]) => `<button class="chip" data-action="jump" data-kind="${kind}">${label(n)}</button>`).join('')
+    : `<span class="chip ok">All on track</span>`;
+}
+
 function paceChip(goal, d) {
   if (d.phase === 'ahead' && d.current === null) return '';
   if (!d.kpi) return d.total ? `<span class="pace none">${d.done} of ${d.total}</span>` : '';
@@ -219,7 +246,7 @@ function cardHTML(goal, lane) {
     ? `Progress from ${esc(fmtVal(d.baseline, goal.unit))}; the tick marks where today's pace expects you`
     : `Milestones checked; the tick marks how much of the time window has passed`;
   const showTick = d.phase !== 'ahead' && (!d.kpi || d.expectedToday !== null);
-  return `<article class="card ${d.phase} ${tone(d)}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
+  return `<article class="card ${d.phase} ${tone(d)}" style="${laneColorStyle(lane)}" data-goal="${goal.id}" data-flags="${flagsOf(goal, d).join(' ')}">
       <div class="card-head">
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
         ${paceChip(goal, d)}
@@ -248,6 +275,7 @@ function cardHTML(goal, lane) {
 function render() {
   const t = today();
   $('#today-label').textContent = todayLong();
+  renderRoundup();
   const lanes = lanesSorted();
   if (!lanes.length) {
     board.innerHTML = `<p class="empty">No lanes yet.<br><br><button data-action="add-lane">+ Add a lane</button></p>`;
@@ -647,6 +675,16 @@ document.addEventListener('click', async (e) => {
   if (!el || el.matches('input')) return;
   const { action, id, goal, lane } = el.dataset;
   switch (action) {
+    case 'jump': {
+      const card = [...document.querySelectorAll('.card')].find((c) => c.dataset.flags.split(' ').includes(el.dataset.kind));
+      if (!card) return;
+      card.closest('details')?.setAttribute('open', '');
+      card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center', inline: 'center' });
+      card.classList.remove('flash');
+      void card.offsetWidth;
+      card.classList.add('flash');
+      return;
+    }
     case 'settings':
       return settingsModal();
     case 'del-company': {

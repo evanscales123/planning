@@ -132,6 +132,10 @@ viewer's local date.
 - Card tints: warm orange for goals that need attention (behind pace,
   overdue or stale), light green once a goal is reached (or, without a KPI,
   every milestone is checked). The same tint shows in the Today panel.
+- Next to today's date, a **roundup** counts goals behind pace, overdue
+  and stale (the last two among goals that have started), plus milestones
+  past due. Each count jumps to the first matching card; with nothing to
+  flag it reads "All on track".
 - **Companies** (Settings in the top bar) are an optional label for a lane,
   shown as a small eyebrow above the lane name, to make clear where a lane
   lives financially. Assign one when editing a lane; deleting a company

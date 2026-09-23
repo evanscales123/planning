@@ -104,6 +104,20 @@ button.icon { padding: 4px 8px; }
   flex: none;
 }
 .today-label { color: var(--muted); }
+.roundup { display: flex; flex-wrap: wrap; gap: 6px; }
+.roundup .chip {
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--warn-edge);
+  background: var(--warn-wash);
+  color: var(--behind);
+}
+.roundup button.chip:hover { border-color: var(--behind); color: var(--behind); }
+.roundup .chip.ok { border-color: var(--good-edge); background: var(--good-wash); color: var(--ahead); }
+.card.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0%, 30% { box-shadow: 0 0 0 3px var(--behind); } 100% { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .card.flash { animation: none; outline: 3px solid var(--behind); } }
 .topbar h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .actions form { margin: 0; }
