@@ -6,6 +6,7 @@ import {
   sortMilestones,
   daysBetween,
   PACE_LABEL,
+  hasKpi,
 } from './derive.js';
 
 const UNITS = ['$', '%', 'count', 'days', 'weeks', 'score'];
@@ -121,33 +122,66 @@ function laneColorStyle(lane) {
   return `--lane:${esc(lane.color)}`;
 }
 
-function stripHTML(lane, current) {
+const goalMilestones = (goalId) => state.milestones.filter((m) => m.goalId === goalId);
+const goalTouchpoints = (goalId) => state.touchpoints.filter((t) => t.goalId === goalId);
+const deriveFor = (goal) => deriveGoal(goal, goalTouchpoints(goal.id), today(), goalMilestones(goal.id));
+
+function todayLong() {
+  return new Date(`${today()}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function paceChip(goal, d) {
+  if (d.phase === 'ahead' && d.current === null) return '';
+  if (!d.kpi) return d.total ? `<span class="pace none">${d.done} of ${d.total}</span>` : '';
+  if (d.pace) return `<span class="pace ${d.pace}" title="Expected today ${esc(fmtVal(d.expectedToday, goal.unit))}">${PACE_LABEL[d.pace]}</span>`;
+  if (goal.target === null && d.current !== null) return `<span class="pace none">No target</span>`;
+  return `<span class="pace none">No data</span>`;
+}
+
+/**
+ * The Today panel at the top of a lane: the current goal and the next unchecked
+ * milestone. If the current goal has no open milestones, the earliest open one
+ * from the lane's other active goals is shown, labelled with its goal.
+ */
+function todayHTML(lane, bands, { rule = true } = {}) {
+  const current = bands.current;
+  const head = rule ? `<div class="today-rule"><span>Today</span><time datetime="${today()}">${todayLong()}</time></div>` : '';
   if (!current) {
-    return `<div class="strip" style="${laneColorStyle(lane)}"><span class="none">No active goal</span></div>`;
+    return `<div class="today" style="${laneColorStyle(lane)}">${head}<div class="today-body"><span class="none">Nothing active</span></div></div>`;
   }
-  const next = nextOpenMilestone(state.milestones.filter((m) => m.goalId === current.id));
-  const label = current.startDate > today() ? '<small>Next · </small>' : '';
+  let next = nextOpenMilestone(goalMilestones(current.id));
+  if (!next) {
+    const others = bands.active.filter((g) => g.id !== current.id).flatMap((g) => goalMilestones(g.id));
+    next = nextOpenMilestone(others);
+  }
+  const fromOther = next && next.goalId !== current.id ? byId('goals', next.goalId) : null;
+  const upcoming = current.startDate > today();
   const nextHTML = next
     ? `<div class="next"><label><input type="checkbox" data-action="toggle-ms" data-id="${next.id}">
-         <span class="name">${esc(next.name)}</span></label>
-         <time datetime="${next.date}" title="${fmtDate(next.date, { withYear: true })}">${fmtDate(next.date)} · ${relDays(next.date)}</time></div>`
+         <span class="ms"><span class="name">${esc(next.name)}${fromOther ? ` <small>· ${esc(fromOther.name)}</small>` : ''}</span>
+         <time datetime="${next.date}" title="${fmtDate(next.date, { withYear: true })}" class="${next.date < today() ? 'late' : ''}">${fmtDate(next.date)} · ${relDays(next.date)}</time></span></label></div>`
     : `<div class="next none">No open milestones</div>`;
-  return `<div class="strip" style="${laneColorStyle(lane)}">
-      <div class="goal-name" title="${esc(current.name)}">${label}${esc(current.name)}</div>
-      ${nextHTML}
+  return `<div class="today" style="${laneColorStyle(lane)}">${head}
+      <div class="today-body">
+        <div class="goal-line">
+          <span class="goal-name" title="${esc(current.name)}">${upcoming ? '<small>Starts ' + fmtDate(current.startDate) + ' · </small>' : ''}${esc(current.name)}</span>
+          ${paceChip(current, deriveFor(current))}
+        </div>
+        ${nextHTML}
+      </div>
     </div>`;
 }
 
 function cardHTML(goal, lane) {
   const t = today();
-  const d = deriveGoal(goal, state.touchpoints.filter((tp) => tp.goalId === goal.id), t);
-  const ms = sortMilestones(state.milestones.filter((m) => m.goalId === goal.id));
-  const pace = d.pace
-    ? `<span class="pace ${d.pace}" title="Expected today ${esc(fmtVal(d.expectedToday, goal.unit))}">${PACE_LABEL[d.pace]}</span>`
-    : `<span class="pace none">No data</span>`;
+  const d = deriveFor(goal);
+  const ms = sortMilestones(goalMilestones(goal.id));
   const statusClass = d.status.replace(/\s+/g, '-');
+  const notStarted = d.phase === 'ahead' && d.current === null;
   const meta = [
-    `<span class="status ${statusClass}">${d.status}</span>`,
+    notStarted
+      ? `<span class="status">Starts ${fmtDate(goal.startDate)}</span>`
+      : `<span class="status ${statusClass}">${d.status}</span>`,
     d.gap !== null ? `<span title="Current minus expected today (${esc(fmtVal(d.expectedToday, goal.unit))})">${fmtSigned(d.gap, goal.unit)} vs pace</span>` : '',
     d.latest ? `<span title="${esc(d.latest.note)}">Last ${fmtDate(d.latest.date)}</span>` : '',
   ].join('');
@@ -163,38 +197,51 @@ function cardHTML(goal, lane) {
         )
         .join('')}</ul>`
     : '';
+  const due = `<div><dt>Due</dt><dd title="${fmtDate(goal.dueDate, { withYear: true })}">${fmtDate(goal.dueDate)}</dd></div>`;
+  const nums = d.kpi
+    ? `<div><dt>Current</dt><dd>${fmtVal(d.current, goal.unit)}</dd></div>
+       <div><dt>Target</dt><dd>${goal.target === null ? '<span class="unset">Not set</span>' : fmtVal(goal.target, goal.unit)}</dd></div>${due}`
+    : `<div><dt>Milestones</dt><dd>${d.total ? `${d.done} of ${d.total}` : '—'}</dd></div>
+       <div><dt>Starts</dt><dd>${fmtDate(goal.startDate)}</dd></div>${due}`;
+  const barTitle = d.kpi
+    ? `Progress from ${esc(fmtVal(d.baseline, goal.unit))}; the tick marks where today's pace expects you`
+    : `Milestones checked; the tick marks how much of the time window has passed`;
+  const showTick = d.phase !== 'ahead' && (!d.kpi || d.expectedToday !== null);
   return `<article class="card ${d.phase}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
       <div class="card-head">
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
-        ${pace}
+        ${paceChip(goal, d)}
       </div>
-      ${goal.kpi ? `<div class="kpi">${esc(goal.kpi)} · ${goal.direction === 'lower' ? 'lower' : 'higher'} is better</div>` : ''}
-      <dl class="nums">
-        <div><dt>Current</dt><dd>${fmtVal(d.current, goal.unit)}</dd></div>
-        <div><dt>Target</dt><dd>${fmtVal(goal.target, goal.unit)}</dd></div>
-        <div><dt>Due</dt><dd title="${fmtDate(goal.dueDate, { withYear: true })}">${fmtDate(goal.dueDate)}</dd></div>
-      </dl>
-      <div class="bar" title="Progress from ${esc(fmtVal(goal.baseline, goal.unit))}; tick marks where today's pace expects you">
+      ${d.kpi ? `<div class="kpi">${esc(goal.kpi)} · ${goal.direction === 'lower' ? 'lower' : 'higher'} is better</div>` : ''}
+      <dl class="nums">${nums}</dl>
+      <div class="bar" title="${barTitle}">
         <span class="fill" style="width:${(d.progress * 100).toFixed(1)}%"></span>
-        ${d.phase !== 'ahead' ? `<span class="tick" style="left:${(d.expectedProgress * 100).toFixed(1)}%"></span>` : ''}
+        ${showTick ? `<span class="tick" style="left:${(d.expectedProgress * 100).toFixed(1)}%"></span>` : ''}
       </div>
       <div class="meta">${meta}</div>
       ${milestones}
       <div class="card-foot">
-        <button data-action="log-tp" data-goal="${goal.id}">Log touchpoint</button>
+        ${d.kpi ? `<button data-action="log-tp" data-goal="${goal.id}">Log touchpoint</button>` : ''}
         <button data-action="add-ms" data-goal="${goal.id}">+ Milestone</button>
       </div>
     </article>`;
 }
 
+/** Upcoming goals, with a year marker wherever the due year changes. */
+function aheadHTML(goals, lane) {
+  let year = null;
+  return goals
+    .map((g) => {
+      const y = g.dueDate.slice(0, 4);
+      const marker = y !== year ? `<div class="year"><span>${y}</span></div>` : '';
+      year = y;
+      return marker + cardHTML(g, lane);
+    })
+    .join('');
+}
+
 function render() {
   const t = today();
-  $('#today-label').textContent = new Date(`${t}T12:00:00`).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
   const lanes = lanesSorted();
   if (!lanes.length) {
     board.innerHTML = `<p class="empty">No lanes yet.<br><br><button data-action="add-lane">+ Add a lane</button></p>`;
@@ -205,17 +252,15 @@ function render() {
   const index = [];
   for (const lane of lanes) {
     const bands = laneBands(state.goals.filter((g) => g.laneId === lane.id), t);
-    const strip = stripHTML(lane, bands.current);
     const title = `<div class="lane-title"><span class="dot" style="${laneColorStyle(lane)}"></span>
         <h2><button data-action="edit-lane" data-id="${lane.id}" title="Edit lane">${esc(lane.name)}</button></h2>
         <button class="add" data-action="add-goal" data-lane="${lane.id}" title="Add goal to ${esc(lane.name)}">+ Goal</button></div>`;
-    index.push(`<a href="#lane-${lane.id}"><div class="lane-title"><span class="dot" style="${laneColorStyle(lane)}"></span><h2>${esc(lane.name)}</h2></div>${strip}</a>`);
+    index.push(`<a href="#lane-${lane.id}"><div class="lane-title"><span class="dot" style="${laneColorStyle(lane)}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
     const empty = !bands.active.length && !bands.ahead.length && !bands.past.length;
     columns.push(`<section class="lane" id="lane-${lane.id}" style="${laneColorStyle(lane)}">
-        <div class="lane-head">${title}${strip}</div>
-        ${bands.active.map((g) => cardHTML(g, lane)).join('')}
-        <div class="today-line">Today</div>
-        ${bands.ahead.map((g) => cardHTML(g, lane)).join('')}
+        <div class="lane-head">${title}${todayHTML(lane, bands)}</div>
+        ${bands.active.length ? `<div class="band-label">Now</div>${bands.active.map((g) => cardHTML(g, lane)).join('')}` : ''}
+        ${aheadHTML(bands.ahead, lane)}
         ${empty ? `<p class="empty-lane">No goals yet.</p>` : ''}
         ${
           bands.past.length
@@ -228,7 +273,7 @@ function render() {
       </section>`);
   }
   board.innerHTML = columns.join('');
-  indexNav.innerHTML = index.join('');
+  indexNav.innerHTML = `<div class="today-rule"><span>Today</span><time datetime="${t}">${todayLong()}</time></div>${index.join('')}`;
 }
 
 // ---- modals ---------------------------------------------------------------
@@ -281,10 +326,12 @@ const buttons = (primary, { del } = {}) => `<div class="buttons">
 const options = (items, selected) =>
   items.map(([v, label]) => `<option value="${esc(v)}" ${String(v) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`).join('');
 
-function goalOptions(selected) {
+function goalOptions(selected, { kpiOnly = false } = {}) {
   return lanesSorted()
     .map((lane) => {
-      const goals = state.goals.filter((g) => g.laneId === lane.id).sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+      const goals = state.goals
+        .filter((g) => g.laneId === lane.id && (!kpiOnly || hasKpi(g)))
+        .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
       if (!goals.length) return '';
       return `<optgroup label="${esc(lane.name)}">${options(goals.map((g) => [g.id, g.name]), selected)}</optgroup>`;
     })
@@ -343,24 +390,31 @@ function goalModal(goal, laneId) {
   if (!state.lanes.length) return laneModal();
   const g = goal || {
     laneId: laneId || lanesSorted()[0].id,
+    kpi: '',
     unit: 'count',
     direction: 'higher',
     startDate: today(),
   };
+  const tracksKpi = Boolean(g.kpi) || !goal;
   openModal(
     `<h2>${goal ? 'Edit goal' : 'New goal'}</h2>
      <label>Lane<select name="laneId">${options(lanesSorted().map((l) => [l.id, l.name]), g.laneId)}</select></label>
      <label>Name<input name="name" required maxlength="200" value="${esc(g.name)}"></label>
      <label>Description<textarea name="description" rows="2" maxlength="5000">${esc(g.description)}</textarea></label>
-     <label>KPI<input name="kpi" maxlength="200" placeholder="e.g. Monthly recurring revenue" value="${esc(g.kpi)}"></label>
-     <div class="row">
-       <label>Unit<select name="unit">${options(UNITS.map((u) => [u, u]), g.unit)}</select></label>
-       <label>Direction<select name="direction">${options([['higher', 'Higher is better'], ['lower', 'Lower is better']], g.direction)}</select></label>
-     </div>
-     <div class="row">
-       <label>Baseline<input name="baseline" type="number" step="any" required value="${esc(g.baseline)}"></label>
-       <label>Target<input name="target" type="number" step="any" required value="${esc(g.target)}"></label>
-     </div>
+     <label class="check"><input type="checkbox" name="tracksKpi" id="goal-tracks-kpi" ${tracksKpi ? 'checked' : ''}> Track a KPI with touchpoints</label>
+     <fieldset class="kpi-fields" id="goal-kpi-fields" ${tracksKpi ? '' : 'hidden disabled'}>
+       <label>KPI<input name="kpi" maxlength="200" required placeholder="e.g. Monthly recurring revenue" value="${esc(g.kpi)}"></label>
+       <div class="row">
+         <label>Unit<select name="unit">${options(UNITS.map((u) => [u, u]), g.unit || 'count')}</select></label>
+         <label>Direction<select name="direction">${options([['higher', 'Higher is better'], ['lower', 'Lower is better']], g.direction || 'higher')}</select></label>
+       </div>
+       <div class="row">
+         <label>Baseline<input name="baseline" type="number" step="any" placeholder="Not measured yet" value="${esc(g.baseline)}"></label>
+         <label>Target<input name="target" type="number" step="any" placeholder="Not set yet" value="${esc(g.target)}"></label>
+       </div>
+       <p class="hint">Leave baseline blank to use the first touchpoint. Without a target there's no pace.</p>
+     </fieldset>
+     <p class="hint" id="goal-no-kpi" ${tracksKpi ? 'hidden' : ''}>Progress comes from checking off milestones.</p>
      <div class="row">
        <label>Start<input name="startDate" type="date" required value="${esc(g.startDate)}"></label>
        <label>Due<input name="dueDate" type="date" required value="${esc(g.dueDate)}"></label>
@@ -376,15 +430,24 @@ function goalModal(goal, laneId) {
         return;
       }
       if (data.dueDate < data.startDate) throw new Error('Due date must be on or after the start date.');
-      const body = {
-        ...data,
-        laneId: Number(data.laneId),
-        baseline: Number(data.baseline),
-        target: Number(data.target),
-      };
+      const num = (v) => (v === undefined || v === '' ? null : Number(v));
+      const { tracksKpi: _, ...fields } = data;
+      const body = data.tracksKpi
+        ? { ...fields, laneId: Number(data.laneId), baseline: num(data.baseline), target: num(data.target) }
+        : { ...fields, laneId: Number(data.laneId), kpi: '', unit: null, direction: null, baseline: null, target: null };
       upsert('goals', await api(goal ? 'PATCH' : 'POST', goal ? `/goals/${goal.id}` : '/goals', body));
     },
   );
+  wireKpiToggle();
+}
+
+function wireKpiToggle() {
+  const box = $('#goal-tracks-kpi');
+  const fields = $('#goal-kpi-fields');
+  box?.addEventListener('change', () => {
+    fields.hidden = fields.disabled = !box.checked;
+    $('#goal-no-kpi').hidden = box.checked;
+  });
 }
 
 function milestoneModal(goalId) {
@@ -402,14 +465,23 @@ function milestoneModal(goalId) {
 }
 
 function touchpointModal(goalId) {
-  if (!state.goals.length) return goalModal();
-  const selected = goalId || state.goals[0].id;
+  const kpiGoals = state.goals.filter(hasKpi);
+  if (!kpiGoals.length) return toast('No goals track a KPI yet. Add one with "+ Goal".');
+  const t = today();
+  const selected =
+    goalId ||
+    kpiGoals.filter((g) => g.startDate <= t && t < g.dueDate).sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0]?.id ||
+    kpiGoals[0].id;
   const historyHTML = (gid) => {
     const goal = byId('goals', gid);
     const tps = state.touchpoints
       .filter((t) => t.goalId === Number(gid))
       .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.id - a.id));
-    if (!tps.length) return `<p class="hint">No touchpoints yet. Baseline is ${esc(fmtVal(goal.baseline, goal.unit))}.</p>`;
+    if (!tps.length) {
+      return goal.baseline === null
+        ? `<p class="hint">No touchpoints yet, and no baseline. This first one will serve as the baseline.</p>`
+        : `<p class="hint">No touchpoints yet. Baseline is ${esc(fmtVal(goal.baseline, goal.unit))}.</p>`;
+    }
     return `<ul class="history">${tps
       .map(
         (t) => `<li><time>${fmtDate(t.date, { withYear: true })}</time><span class="v">${esc(fmtVal(t.value, goal.unit))}</span>
@@ -419,11 +491,11 @@ function touchpointModal(goalId) {
   };
   const unitHint = (gid) => {
     const g = byId('goals', gid);
-    return `${g.kpi ? esc(g.kpi) + ' · ' : ''}unit ${esc(g.unit)} · target ${esc(fmtVal(g.target, g.unit))}`;
+    return `${esc(g.kpi)} · unit ${esc(g.unit)} · target ${g.target === null ? 'not set' : esc(fmtVal(g.target, g.unit))}`;
   };
   openModal(
     `<h2>Log touchpoint</h2>
-     <label>Goal<select name="goalId" id="tp-goal">${goalOptions(selected)}</select></label>
+     <label>Goal<select name="goalId" id="tp-goal">${goalOptions(selected, { kpiOnly: true })}</select></label>
      <p class="hint" id="tp-hint">${unitHint(selected)}</p>
      <div class="row">
        <label>Date<input name="date" type="date" required value="${today()}"></label>

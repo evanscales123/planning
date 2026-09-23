@@ -101,9 +101,10 @@ app.use((req, res, next) => {
 const api = express.Router();
 api.use(express.json({ limit: '100kb' }));
 
-// Mutations must be JSON: blocks cross-site form posts even without CSRF tokens.
+// Writes with a body must be JSON: blocks cross-site form posts even without
+// CSRF tokens. (DELETE has no body; cross-site it would need a CORS preflight.)
 api.use((req, res, next) => {
-  if (req.method !== 'GET' && !req.is('application/json')) {
+  if (['POST', 'PATCH', 'PUT'].includes(req.method) && !req.is('application/json')) {
     return res.status(415).json({ error: 'expected application/json' });
   }
   next();

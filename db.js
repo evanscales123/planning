@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS goals (
   name        TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   kpi         TEXT NOT NULL DEFAULT '',
-  unit        TEXT NOT NULL CHECK (unit IN ('$', '%', 'count', 'days', 'weeks', 'score')),
-  direction   TEXT NOT NULL CHECK (direction IN ('higher', 'lower')),
-  baseline    NUMERIC NOT NULL,
-  target      NUMERIC NOT NULL,
+  unit        TEXT CHECK (unit IN ('$', '%', 'count', 'days', 'weeks', 'score')),
+  direction   TEXT CHECK (direction IN ('higher', 'lower')),
+  baseline    NUMERIC,
+  target      NUMERIC,
   start_date  DATE NOT NULL,
   due_date    DATE NOT NULL,
   CONSTRAINT goals_due_after_start CHECK (due_date >= start_date)
@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS touchpoints (
   note     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS touchpoints_goal_idx ON touchpoints(goal_id);
+
+-- KPI fields are optional (a goal can be milestone-only); relax older databases.
+ALTER TABLE goals ALTER COLUMN unit DROP NOT NULL;
+ALTER TABLE goals ALTER COLUMN direction DROP NOT NULL;
+ALTER TABLE goals ALTER COLUMN baseline DROP NOT NULL;
+ALTER TABLE goals ALTER COLUMN target DROP NOT NULL;
 `;
 
 export async function migrate(pool) {
@@ -76,14 +82,14 @@ export const TABLES = {
       name: ['name', 'text'],
       description: ['description', 'longtext'],
       kpi: ['kpi', 'text?'],
-      unit: ['unit', 'unit'],
-      direction: ['direction', 'direction'],
-      baseline: ['baseline', 'number'],
-      target: ['target', 'number'],
+      unit: ['unit', 'unit?'],
+      direction: ['direction', 'direction?'],
+      baseline: ['baseline', 'number?'],
+      target: ['target', 'number?'],
       startDate: ['start_date', 'date'],
       dueDate: ['due_date', 'date'],
     },
-    required: ['laneId', 'name', 'unit', 'direction', 'baseline', 'target', 'startDate', 'dueDate'],
+    required: ['laneId', 'name', 'startDate', 'dueDate'],
     orderBy: 'due_date, id',
   },
   milestones: {
@@ -157,6 +163,12 @@ function coerce(kind, key, value) {
       if (!Number.isFinite(n)) fail('must be a number');
       return n;
     }
+    case 'number?': {
+      if (value === '' || value === null || value === undefined) return null;
+      const n = Number(value);
+      if (!Number.isFinite(n)) fail('must be a number');
+      return n;
+    }
     case 'bool':
       return value === true || value === 'true' || value === 1;
     case 'date':
@@ -169,10 +181,12 @@ function coerce(kind, key, value) {
     case 'color':
       if (!/^#[0-9a-fA-F]{6}$/.test(String(value))) fail('must be a hex color like #3366aa');
       return String(value).toLowerCase();
-    case 'unit':
+    case 'unit?':
+      if (value === null || value === '' || value === undefined) return null;
       if (!UNITS.includes(value)) fail(`must be one of ${UNITS.join(', ')}`);
       return value;
-    case 'direction':
+    case 'direction?':
+      if (value === null || value === '' || value === undefined) return null;
       if (!DIRECTIONS.includes(value)) fail('must be "higher" or "lower"');
       return value;
     default:
@@ -193,5 +207,22 @@ export function validate(table, body, { partial = false } = {}) {
     out[col] = coerce(kind, key, body[key]);
   }
   if (partial && Object.keys(out).length === 0) throw new ValidationError('nothing to update');
+  if (table === 'goals') {
+    if (!partial && !('kpi' in out)) out.kpi = '';
+    goalRules(out, partial);
+  }
   return out;
+}
+
+// A goal either tracks a KPI (label + unit + direction; baseline and target may
+// be filled in later) or is milestone-only, in which case the KPI fields are cleared.
+function goalRules(row, partial) {
+  if (!('kpi' in row)) return;
+  if (!row.kpi) {
+    Object.assign(row, { kpi: '', unit: null, direction: null, baseline: null, target: null });
+    return;
+  }
+  if (partial) return;
+  row.unit ??= 'count';
+  row.direction ??= 'higher';
 }

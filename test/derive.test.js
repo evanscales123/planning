@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { deriveGoal, expectedAt, laneBands, nextOpenMilestone, paceOf, phaseOf } from '../public/derive.js';
 
 const goal = (o = {}) => ({
-  id: 1, baseline: 0, target: 100, direction: 'higher',
+  id: 1, kpi: 'Widgets', unit: 'count', baseline: 0, target: 100, direction: 'higher',
   startDate: '2026-01-01', dueDate: '2026-12-31', ...o,
 });
 
@@ -76,4 +76,30 @@ test('next open milestone is the earliest unchecked', () => {
   ];
   assert.equal(nextOpenMilestone(ms).id, 3);
   assert.equal(nextOpenMilestone([ms[0]]), null);
+});
+
+test('unset baseline comes from the first touchpoint; unset target means no pace', () => {
+  const today = '2026-07-01';
+  const tps = [{ id: 2, date: '2026-06-01', value: 70 }, { id: 1, date: '2026-02-01', value: 20 }];
+  const d = deriveGoal(goal({ baseline: null }), tps, today);
+  assert.equal(d.baseline, 20);
+  assert.ok(d.expectedToday > 20 && d.expectedToday < 100);
+  assert.ok(d.pace);
+  const noTarget = deriveGoal(goal({ target: null }), tps, today);
+  assert.equal(noTarget.pace, null);
+  assert.equal(noTarget.gap, null);
+  assert.equal(noTarget.status, 'In progress');
+  assert.equal(deriveGoal(goal({ baseline: null, target: null }), [], today).status, 'No touchpoint');
+});
+
+test('goals without a KPI track milestones instead', () => {
+  const g = goal({ kpi: '', unit: null, baseline: null, target: null, dueDate: '2026-12-31' });
+  const ms = [{ id: 1, done: true }, { id: 2, done: false }];
+  const d = deriveGoal(g, [], '2026-07-01', ms);
+  assert.equal(d.kpi, false);
+  assert.equal(d.status, 'In progress');
+  assert.equal(d.progress, 0.5);
+  assert.equal(d.pace, null);
+  assert.equal(deriveGoal(g, [], '2027-01-05', ms).status, 'Overdue');
+  assert.equal(deriveGoal(g, [], '2027-01-05', [{ id: 1, done: true }]).status, 'Done');
 });

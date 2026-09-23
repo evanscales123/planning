@@ -7,7 +7,10 @@
 //   nested: { lanes: [ { name, color, goals: [ { ..., milestones: [], touchpoints: [] } ] } ] }
 //   flat:   { lanes: [...], goals: [{ lane: "<lane name>", ... }],
 //             milestones: [{ goal: "<goal name>", ... }], touchpoints: [{ goal: "<goal name>", ... }] }
-// Both can be mixed. Keys may be camelCase or snake_case.
+// Both can be mixed. Keys may be camelCase or snake_case. A goal's "notes"
+// are appended to its description, and "draft": true is noted there too.
+// Goals may leave baseline/target null, or omit the KPI entirely.
+// Other keys (ids, lane missions, milestone notes, meta) are ignored.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,13 +24,20 @@ const pick = (obj, ...keys) => {
   return undefined;
 };
 
+const joinText = (...parts) => parts.filter((p) => typeof p === 'string' && p.trim()).join('\n\n');
+
 function normGoal(g, where) {
+  const direction = pick(g, 'direction');
   return {
     name: pick(g, 'name', 'title'),
-    description: pick(g, 'description', 'desc') ?? '',
+    description: joinText(
+      pick(g, 'description', 'desc'),
+      pick(g, 'notes', 'note'),
+      pick(g, 'draft') ? 'Draft: target not confirmed yet.' : '',
+    ),
     kpi: pick(g, 'kpi', 'KPI', 'metric') ?? '',
-    unit: pick(g, 'unit') ?? 'count',
-    direction: String(pick(g, 'direction') ?? 'higher').toLowerCase().replace(/ is better$/, ''),
+    unit: pick(g, 'unit'),
+    direction: direction === undefined ? undefined : String(direction).toLowerCase().replace(/ is better$/, ''),
     baseline: pick(g, 'baseline', 'start_value', 'startValue'),
     target: pick(g, 'target', 'target_value', 'targetValue'),
     startDate: pick(g, 'startDate', 'start_date', 'start'),
@@ -109,7 +119,7 @@ function validatePlan(plan) {
     }
   };
   return plan.lanes.map((l) => ({
-    row: wrap(`lane "${l.name}"`, () => validate('lanes', { name: l.name, color: l.color, order: l.order })),
+    row: wrap(`lane "${l.name}"`, () => validate('lanes', { name: l.name, color: l.color, order: l.order})),
     goals: l.goals.map((g) => {
       const where = `${g.where}, goal "${g.name}"`;
       const row = wrap(where, () => validate('goals', { ...g, laneId: 1 }));

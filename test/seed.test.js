@@ -25,3 +25,13 @@ test('aliases and errors', () => {
   assert.throws(() => normalizePlan({ lanes: [], goals: [{ lane: 'Nope', name: 'x' }] }), /unknown lane/);
   assert.throws(() => normalizePlan({ lanes: ['A'], milestones: [{ goal: 'x', name: 'm' }] }), /unknown goal/);
 });
+
+test('the real plan.json validates end to end', async () => {
+  const { normalizePlan } = await import('../seed.js');
+  const raw = JSON.parse(fs.readFileSync(new URL('../plan.json', import.meta.url)));
+  const plan = normalizePlan(raw);
+  assert.equal(plan.lanes.length, 6);
+  const burn = plan.lanes[0].goals.find((g) => g.name.startsWith('Hold household burn'));
+  assert.equal(burn.baseline, undefined);
+  assert.match(burn.description, /Draft: target not confirmed/);
+});
