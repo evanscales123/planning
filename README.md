@@ -121,10 +121,14 @@ viewer's local date.
   soonest-due active one, or the next upcoming one if none is active) and
   its next unchecked milestone. If that goal has no open milestones, the
   earliest one from the lane's other active goals shows instead. Checking
-  it, in the panel or on the card, updates both immediately.
-- Below Today, time runs downward: active goals (`start ≤ today < due`)
-  under **Now**, then upcoming goals by due date with a marker at each new
-  year. Goals whose due date has passed collapse into **Past** at the
-  bottom. All sorted by due date.
+  it, in the panel or on the card, updates both immediately. The date is
+  in the top bar.
+- Below Today, time runs downward in rows shared by every lane: **Now**
+  (active goals, `start ≤ today < due`), then one row per due year for
+  upcoming goals, then **Past** (collapsed). Rows line up across lanes, so
+  2028 starts at the same height everywhere, leaving blank space where a
+  lane has less in a given year. Goals within a row are sorted by due date.
+- Orange is reserved for goals that need attention: behind pace, overdue
+  or stale. Their cards (and Today panel) get a warm tint.
 - Under 760px wide the columns stack and the Today panels become an index
   at the top of the page.

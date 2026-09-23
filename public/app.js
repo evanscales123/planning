@@ -126,6 +126,9 @@ const goalMilestones = (goalId) => state.milestones.filter((m) => m.goalId === g
 const goalTouchpoints = (goalId) => state.touchpoints.filter((t) => t.goalId === goalId);
 const deriveFor = (goal) => deriveGoal(goal, goalTouchpoints(goal.id), today(), goalMilestones(goal.id));
 
+/** Needs attention: behind pace, overdue, or stale. These get the warm warning tint. */
+const needsAttention = (d) => d.pace === 'behind' || d.status === 'Overdue' || d.status === 'Stale';
+
 function todayLong() {
   return new Date(`${today()}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -145,7 +148,7 @@ function paceChip(goal, d) {
  */
 function todayHTML(lane, bands, { rule = true } = {}) {
   const current = bands.current;
-  const head = rule ? `<div class="today-rule"><span>Today</span><time datetime="${today()}">${todayLong()}</time></div>` : '';
+  const head = rule ? `<div class="today-rule"><span>Today</span></div>` : '';
   if (!current) {
     return `<div class="today" style="${laneColorStyle(lane)}">${head}<div class="today-body"><span class="none">Nothing active</span></div></div>`;
   }
@@ -156,16 +159,17 @@ function todayHTML(lane, bands, { rule = true } = {}) {
   }
   const fromOther = next && next.goalId !== current.id ? byId('goals', next.goalId) : null;
   const upcoming = current.startDate > today();
+  const d = deriveFor(current);
   const nextHTML = next
     ? `<div class="next"><label><input type="checkbox" data-action="toggle-ms" data-id="${next.id}">
          <span class="ms"><span class="name">${esc(next.name)}${fromOther ? ` <small>· ${esc(fromOther.name)}</small>` : ''}</span>
          <time datetime="${next.date}" title="${fmtDate(next.date, { withYear: true })}" class="${next.date < today() ? 'late' : ''}">${fmtDate(next.date)} · ${relDays(next.date)}</time></span></label></div>`
     : `<div class="next none">No open milestones</div>`;
   return `<div class="today" style="${laneColorStyle(lane)}">${head}
-      <div class="today-body">
+      <div class="today-body ${needsAttention(d) ? 'warn' : ''}">
         <div class="goal-line">
           <span class="goal-name" title="${esc(current.name)}">${upcoming ? '<small>Starts ' + fmtDate(current.startDate) + ' · </small>' : ''}${esc(current.name)}</span>
-          ${paceChip(current, deriveFor(current))}
+          ${paceChip(current, d)}
         </div>
         ${nextHTML}
       </div>
@@ -207,7 +211,7 @@ function cardHTML(goal, lane) {
     ? `Progress from ${esc(fmtVal(d.baseline, goal.unit))}; the tick marks where today's pace expects you`
     : `Milestones checked; the tick marks how much of the time window has passed`;
   const showTick = d.phase !== 'ahead' && (!d.kpi || d.expectedToday !== null);
-  return `<article class="card ${d.phase}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
+  return `<article class="card ${d.phase} ${needsAttention(d) ? 'warn' : ''}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
       <div class="card-head">
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
         ${paceChip(goal, d)}
@@ -227,53 +231,67 @@ function cardHTML(goal, lane) {
     </article>`;
 }
 
-/** Upcoming goals, with a year marker wherever the due year changes. */
-function aheadHTML(goals, lane) {
-  let year = null;
-  return goals
-    .map((g) => {
-      const y = g.dueDate.slice(0, 4);
-      const marker = y !== year ? `<div class="year"><span>${y}</span></div>` : '';
-      year = y;
-      return marker + cardHTML(g, lane);
-    })
-    .join('');
-}
-
+/**
+ * The board is a grid: one column per lane, one row per time band shared by
+ * every lane — the Today heads, Now, then one row per due year, then Past — so
+ * a given year starts at the same height in every column. Cells are emitted
+ * lane by lane, which is also the order they stack in on mobile.
+ */
 function render() {
   const t = today();
+  $('#today-label').textContent = todayLong();
   const lanes = lanesSorted();
   if (!lanes.length) {
     board.innerHTML = `<p class="empty">No lanes yet.<br><br><button data-action="add-lane">+ Add a lane</button></p>`;
     indexNav.innerHTML = '';
     return;
   }
-  const columns = [];
+  const perLane = lanes.map((lane) => ({ lane, bands: laneBands(state.goals.filter((g) => g.laneId === lane.id), t) }));
+  const years = [...new Set(perLane.flatMap(({ bands }) => bands.ahead.map((g) => g.dueDate.slice(0, 4))))].sort();
+  const rows = ['now', ...years, 'past'];
+  const hasPast = perLane.some(({ bands }) => bands.past.length);
+
+  board.style.setProperty('--lanes', lanes.length);
+  const cells = [];
   const index = [];
-  for (const lane of lanes) {
-    const bands = laneBands(state.goals.filter((g) => g.laneId === lane.id), t);
-    const title = `<div class="lane-title"><span class="dot" style="${laneColorStyle(lane)}"></span>
+  perLane.forEach(({ lane, bands }, col) => {
+    const at = (row) => `grid-column:${col + 1};grid-row:${row + 1}`;
+    const style = laneColorStyle(lane);
+    const title = `<div class="lane-title"><span class="dot" style="${style}"></span>
         <h2><button data-action="edit-lane" data-id="${lane.id}" title="Edit lane">${esc(lane.name)}</button></h2>
         <button class="add" data-action="add-goal" data-lane="${lane.id}" title="Add goal to ${esc(lane.name)}">+ Goal</button></div>`;
-    index.push(`<a href="#lane-${lane.id}"><div class="lane-title"><span class="dot" style="${laneColorStyle(lane)}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
+    index.push(`<a href="#lane-${lane.id}"><div class="lane-title"><span class="dot" style="${style}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
+    cells.push(`<div class="lane-head ${col < lanes.length - 1 ? 'has-next' : ''}" id="lane-${lane.id}" style="${style};${at(0)}">${title}${todayHTML(lane, bands)}</div>`);
+
     const empty = !bands.active.length && !bands.ahead.length && !bands.past.length;
-    columns.push(`<section class="lane" id="lane-${lane.id}" style="${laneColorStyle(lane)}">
-        <div class="lane-head">${title}${todayHTML(lane, bands)}</div>
-        ${bands.active.length ? `<div class="band-label">Now</div>${bands.active.map((g) => cardHTML(g, lane)).join('')}` : ''}
-        ${aheadHTML(bands.ahead, lane)}
-        ${empty ? `<p class="empty-lane">No goals yet.</p>` : ''}
-        ${
-          bands.past.length
-            ? `<details class="past" data-lane="${lane.id}" ${openPast.has(lane.id) ? 'open' : ''}>
-                <summary>Past · ${bands.past.length}</summary>
-                <div class="stack">${bands.past.map((g) => cardHTML(g, lane)).join('')}</div>
-              </details>`
-            : ''
+    rows.forEach((row, i) => {
+      let label = '';
+      let goals = [];
+      let body = '';
+      if (row === 'now') {
+        label = 'Now';
+        goals = bands.active;
+        if (empty) body = `<p class="empty-lane">No goals yet.</p>`;
+      } else if (row === 'past') {
+        if (!hasPast) return;
+        if (bands.past.length) {
+          body = `<details class="past" data-lane="${lane.id}" ${openPast.has(lane.id) ? 'open' : ''}>
+              <summary>Past · ${bands.past.length}</summary>
+              <div class="stack">${bands.past.map((g) => cardHTML(g, lane)).join('')}</div>
+            </details>`;
         }
-      </section>`);
-  }
-  board.innerHTML = columns.join('');
-  indexNav.innerHTML = `<div class="today-rule"><span>Today</span><time datetime="${t}">${todayLong()}</time></div>${index.join('')}`;
+      } else {
+        label = row;
+        goals = bands.ahead.filter((g) => g.dueDate.startsWith(row));
+      }
+      body = goals.map((g) => cardHTML(g, lane)).join('') + body;
+      const cls = row === 'now' ? 'now' : row === 'past' ? 'past-cell' : 'year-cell';
+      cells.push(`<div class="cell ${cls} ${body ? '' : 'vacant'} ${col < lanes.length - 1 ? 'has-next' : ''}" style="${style};${at(i + 1)}">
+          ${label ? `<div class="band-label"><span>${label}</span></div>` : ''}${body}</div>`);
+    });
+  });
+  board.innerHTML = cells.join('');
+  indexNav.innerHTML = `<div class="today-rule"><span>Today</span></div>${index.join('')}`;
 }
 
 // ---- modals ---------------------------------------------------------------
