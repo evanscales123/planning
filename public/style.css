@@ -363,6 +363,7 @@ button.icon { padding: 4px 8px; }
 .milestones li.done .name { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--faint); }
 .milestones li.late:not(.done) time { color: var(--bad); }
 .unset { color: var(--faint); font-weight: 400; }
+.from-baseline { color: var(--muted); }
 .milestones .del { visibility: hidden; border: 0; padding: 0 2px; color: var(--faint); font-size: 14px; line-height: 1; }
 .milestones li:hover .del, .milestones .del:focus-visible { visibility: visible; }
 input[type='checkbox'] { accent-color: var(--text); width: 14px; height: 14px; margin: 0; flex: none; }

@@ -101,7 +101,9 @@ if two goals share a name). The shapes can be mixed.
 Nothing below is stored; it's computed in `public/derive.js` using the
 viewer's local date.
 
-- **current**: value of the goal's latest touchpoint
+- **current**: value of the goal's latest touchpoint. Until there is one,
+  the card shows the baseline (in grey) instead; status stays "No
+  touchpoint" and there's no pace yet.
 - **expectedToday**: `baseline + (target − baseline) × clamp((today − start) / (due − start), 0, 1)`
 - **gapToPace**: `current − expectedToday`
 - **pace**: *On pace* if `|gap| ≤ 10% × |target − baseline|`, otherwise

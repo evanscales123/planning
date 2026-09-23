@@ -254,7 +254,12 @@ function cardHTML(goal, lane) {
     : '';
   const due = `<div><dt>Due</dt><dd title="${fmtDate(goal.dueDate, { withYear: true })}">${fmtDate(goal.dueDate)}</dd></div>`;
   const nums = d.kpi
-    ? `<div><dt>Current</dt><dd>${fmtVal(d.current, goal.unit)}</dd></div>
+    ? `<div><dt>Current</dt><dd>${
+        // Until the first touchpoint, show the baseline as the starting value.
+        d.current === null && d.baseline !== null
+          ? `<span class="from-baseline" title="Baseline (no touchpoints yet)">${fmtVal(d.baseline, goal.unit)}</span>`
+          : fmtVal(d.current, goal.unit)
+      }</dd></div>
        <div><dt>Target</dt><dd>${goal.target === null ? '<span class="unset">Not set</span>' : fmtVal(goal.target, goal.unit)}</dd></div>${due}`
     : `<div><dt>Milestones</dt><dd>${d.total ? `${d.done} of ${d.total}` : '—'}</dd></div>
        <div><dt>Starts</dt><dd>${fmtDate(goal.startDate)}</dd></div>${due}`;
