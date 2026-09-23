@@ -124,8 +124,8 @@ viewer's local date.
   earliest one from the lane's other active goals shows instead. Checking
   it, in the panel or on the card, updates both immediately. When other
   goals are running in the lane, a "+ N more active goals" line at the
-  bottom of the panel says so (hover to list them, click to jump to the
-  first). The date is in the top bar.
+  bottom of the panel says so (hover to list them; click to highlight them
+  all and scroll to the first). The date is in the top bar.
 - Below Today, time runs downward in rows shared by every lane: the
   **current year** (active goals, `start ≤ today < due`, plus later-starting
   goals due this year), then one row per due year for upcoming goals, then

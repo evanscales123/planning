@@ -219,7 +219,7 @@ function moreActiveHTML(bands, current) {
   const others = bands.active.filter((g) => g.id !== current.id);
   if (!others.length) return '';
   const n = others.length;
-  return `<button class="more-active" data-action="jump-goal" data-id="${others[0].id}"
+  return `<button class="more-active" data-action="jump-goal" data-ids="${others.map((g) => g.id).join(' ')}"
       title="${esc(others.map((g) => g.name).join('\n'))}">+ ${n} more active goal${n === 1 ? '' : 's'}</button>`;
 }
 
@@ -718,16 +718,20 @@ document.addEventListener('click', async (e) => {
   switch (action) {
     case 'jump':
     case 'jump-goal': {
-      const card =
+      // The roundup jumps to the first card with that flag; "+ N more active goals"
+      // highlights all N and scrolls to the first.
+      const cards =
         action === 'jump-goal'
-          ? document.querySelector(`#board .card[data-goal="${id}"]`)
-          : [...document.querySelectorAll('.card')].find((c) => c.dataset.flags.split(' ').includes(el.dataset.kind));
-      if (!card) return;
-      card.closest('details')?.setAttribute('open', '');
-      card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center', inline: 'center' });
-      card.classList.remove('flash');
-      void card.offsetWidth;
-      card.classList.add('flash');
+          ? el.dataset.ids.split(' ').map((gid) => document.querySelector(`#board .card[data-goal="${gid}"]`)).filter(Boolean)
+          : [[...document.querySelectorAll('.card')].find((c) => c.dataset.flags.split(' ').includes(el.dataset.kind))].filter(Boolean);
+      if (!cards.length) return;
+      cards[0].closest('details')?.setAttribute('open', '');
+      cards[0].scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center', inline: 'center' });
+      for (const card of cards) {
+        card.classList.remove('flash');
+        void card.offsetWidth;
+        card.classList.add('flash');
+      }
       return;
     }
     case 'settings':
