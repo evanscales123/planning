@@ -1,0 +1,73 @@
+{
+  "lanes": [
+    {
+      "name": "Consulting",
+      "color": "#4f6d8f",
+      "goals": [
+        {
+          "name": "Grow retainer revenue",
+          "description": "Move two project clients onto monthly retainers.",
+          "kpi": "Monthly retainer revenue",
+          "unit": "$",
+          "direction": "higher",
+          "baseline": 12000,
+          "target": 30000,
+          "startDate": "2026-04-01",
+          "dueDate": "2026-12-31",
+          "milestones": [
+            { "name": "Retainer offer drafted", "date": "2026-05-15", "done": true, "completedOn": "2026-05-12" },
+            { "name": "First client converted", "date": "2026-08-31", "done": true },
+            { "name": "Second client converted", "date": "2026-10-31" }
+          ],
+          "touchpoints": [
+            { "date": "2026-06-30", "value": 16500, "note": "Client A signed" },
+            { "date": "2026-09-01", "value": 19000 }
+          ]
+        },
+        {
+          "name": "Shorten sales cycle",
+          "kpi": "Median days from intro to signed",
+          "unit": "days",
+          "direction": "lower",
+          "baseline": 45,
+          "target": 25,
+          "startDate": "2027-01-01",
+          "dueDate": "2027-06-30"
+        }
+      ]
+    },
+    { "name": "Product", "color": "#5b7f5b" }
+  ],
+  "goals": [
+    {
+      "lane": "Product",
+      "name": "Launch v2",
+      "kpi": "Paying accounts",
+      "unit": "count",
+      "direction": "higher",
+      "baseline": 0,
+      "target": 150,
+      "startDate": "2026-03-01",
+      "dueDate": "2027-03-01"
+    },
+    {
+      "lane": "Product",
+      "name": "Beta",
+      "kpi": "NPS",
+      "unit": "score",
+      "direction": "higher",
+      "baseline": 20,
+      "target": 40,
+      "startDate": "2025-09-01",
+      "dueDate": "2026-02-28"
+    }
+  ],
+  "milestones": [
+    { "goal": "Launch v2", "name": "Pricing page live", "date": "2026-10-15" },
+    { "goal": "Launch v2", "name": "Public launch", "date": "2026-11-20" }
+  ],
+  "touchpoints": [
+    { "goal": "Launch v2", "date": "2026-09-15", "value": 38, "note": "After beta conversions" },
+    { "goal": "Beta", "date": "2026-02-20", "value": 42 }
+  ]
+}

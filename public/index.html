@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan</title>
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='2' width='3' height='12' rx='1' fill='%23888'/%3E%3Crect x='6.5' y='2' width='3' height='8' rx='1' fill='%23888'/%3E%3Crect x='11' y='2' width='3' height='10' rx='1' fill='%23888'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Plan</h1>
+    <span class="today-label" id="today-label"></span>
+    <nav class="actions">
+      <button data-action="add-goal">+ Goal</button>
+      <button data-action="log-tp">Log touchpoint</button>
+      <button data-action="add-lane">+ Lane</button>
+      <button data-action="toggle-theme" class="icon" title="Toggle light / dark" aria-label="Toggle light / dark">◐</button>
+      <form method="post" action="/logout"><button type="submit">Sign out</button></form>
+    </nav>
+  </header>
+  <nav class="index" id="index" aria-label="Lanes"></nav>
+  <main class="board" id="board"><p class="empty">Loading…</p></main>
+  <dialog id="modal"><form method="dialog" id="modal-form"></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
