@@ -35,6 +35,19 @@ function fmtDate(iso, { withYear } = {}) {
   return `${MONTHS[m - 1]} ${d}${showYear ? `, ${y}` : ''}`;
 }
 
+/** "Due in 3 years", "Due in 5 months", "Due in 2 weeks", "Due today", "Due 3 weeks ago". */
+function dueLabel(iso) {
+  const n = daysBetween(today(), iso);
+  if (n === 0) return 'Due today';
+  if (n === 1) return 'Due tomorrow';
+  if (n === -1) return 'Due yesterday';
+  const d = Math.abs(n);
+  const plural = (v, unit) => `${v} ${unit}${v === 1 ? '' : 's'}`;
+  const span =
+    d < 14 ? plural(d, 'day') : d < 60 ? plural(Math.round(d / 7), 'week') : d < 730 ? plural(Math.round(d / 30.44), 'month') : plural(Math.round(d / 365.25), 'year');
+  return n > 0 ? `Due in ${span}` : `Due ${span} ago`;
+}
+
 function relDays(iso) {
   const n = daysBetween(today(), iso);
   if (n === 0) return 'today';
@@ -259,7 +272,7 @@ function cardHTML(goal, lane) {
         )
         .join('')}</ul>`
     : '';
-  const due = `<div><dt>Due</dt><dd title="${fmtDate(goal.dueDate, { withYear: true })}">${fmtDate(goal.dueDate)}</dd></div>`;
+  const due = `<div><dt>${dueLabel(goal.dueDate)}</dt><dd title="${fmtDate(goal.dueDate, { withYear: true })}">${fmtDate(goal.dueDate)}</dd></div>`;
   const nums = d.kpi
     ? `<div><dt>Current</dt><dd>${
         // Until the first touchpoint, show the baseline as the starting value.
