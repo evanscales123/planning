@@ -36,9 +36,10 @@ rather than the private network, also set `DATABASE_SSL=1`.
 
 ## Seeding from plan.json
 
-`plan.json` in the repo root loads on first boot into an empty database.
-To keep it out of git instead, delete it and load it from your machine
-against the Railway database:
+The app starts empty; add lanes and goals from the page. To import a plan
+instead, either put a `plan.json` in the repo root (it loads on first boot
+into an empty database), or load it from your machine against the Railway
+database:
 
 ```sh
 railway run npm run seed -- plan.json            # only if the DB is empty

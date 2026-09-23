@@ -26,16 +26,15 @@ test('aliases and errors', () => {
   assert.throws(() => normalizePlan({ lanes: ['A'], milestones: [{ goal: 'x', name: 'm' }] }), /unknown goal/);
 });
 
-test('the real plan.json validates end to end', async () => {
-  const { normalizePlan } = await import('../seed.js');
-  const raw = JSON.parse(fs.readFileSync(new URL('../plan.json', import.meta.url)));
-  const plan = normalizePlan(raw);
-  assert.equal(plan.lanes.length, 6);
-  const burn = plan.lanes[0].goals.find((g) => g.name.startsWith('Hold household burn'));
-  assert.equal(burn.baseline, undefined);
-  assert.match(burn.description, /Draft: target not confirmed/);
-  assert.deepEqual(
-    plan.lanes.map((l) => l.company),
-    [null, 'May Street', null, 'Evan Scales Visuals', 'Evan Scales Visuals', null],
-  );
+test('lanes can name a company; null baselines and draft notes survive', () => {
+  const plan = normalizePlan({
+    lanes: [
+      { name: 'Studio', company: 'Acme Co', goals: [{ name: 'Hold burn', kpi: 'Burn', unit: '$', direction: 'lower', baseline: null, target: null, start: '2026-01-01', due: '2026-12-31', draft: true, notes: 'Set later.' }] },
+      { name: 'Personal' },
+    ],
+  });
+  assert.deepEqual(plan.lanes.map((l) => l.company), ['Acme Co', null]);
+  const g = plan.lanes[0].goals[0];
+  assert.equal(g.baseline, undefined);
+  assert.match(g.description, /Set later\.\n\nDraft: target not confirmed/);
 });
