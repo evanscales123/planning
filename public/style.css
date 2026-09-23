@@ -13,6 +13,8 @@
   --bad: #b3401c;
   --warn-wash: #fdf3ec;
   --warn-edge: #efcfb6;
+  --good-wash: #eef7f0;
+  --good-edge: #c5e3cd;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   --radius: 8px;
   color-scheme: light;
@@ -33,6 +35,8 @@
     --bad: #e58a6a;
     --warn-wash: #2a211b;
     --warn-edge: #54392a;
+    --good-wash: #18241c;
+    --good-edge: #2e4a36;
     --shadow: none;
     color-scheme: dark;
   }
@@ -52,6 +56,8 @@
   --bad: #e58a6a;
   --warn-wash: #2a211b;
   --warn-edge: #54392a;
+  --good-wash: #18241c;
+  --good-edge: #2e4a36;
   --shadow: none;
   color-scheme: dark;
 }
@@ -178,7 +184,8 @@ button.icon { padding: 4px 8px; }
 }
 /* goals that need attention (behind pace, overdue, stale) get the warm tint */
 .today-body.warn, .card.warn { background: var(--warn-wash); border-color: var(--warn-edge); }
-.today-body.warn, .card.active.warn { border-left-color: var(--lane, var(--warn-edge)); }
+.today-body.good, .card.good { background: var(--good-wash); border-color: var(--good-edge); }
+.today-body.warn, .card.active.warn, .today-body.good, .card.active.good { border-left-color: var(--lane, var(--line)); }
 .today .goal-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .today .goal-name { font-size: 15px; font-weight: 600; flex: 1; min-width: 0; line-height: 1.3; }
 .today .goal-name small { color: var(--muted); font-weight: 400; font-size: 12px; }
@@ -346,6 +353,16 @@ dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top
 dialog .buttons .danger { margin-right: auto; }
 dialog .error { color: var(--bad); font-size: 13px; }
 dialog .hint { color: var(--muted); font-size: 12px; }
+dialog .last-tp { font-size: 13px; color: var(--muted); padding: 8px 10px; background: var(--surface-2); border-radius: 6px; }
+dialog .last-tp b { color: var(--text); font-weight: 600; }
+dialog .dupe { font-size: 12.5px; color: var(--behind); margin-top: -4px; }
+dialog .affixed { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+dialog .affixed:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+dialog .affixed input:not([type='checkbox']) { border: 0; background: transparent; outline: none; min-width: 0; flex: 1; }
+dialog .affixed .pre { padding-left: 9px; font-size: 14px; }
+dialog .affixed .post { padding-right: 9px; font-size: 13px; color: var(--muted); }
+dialog .affixed .pre:empty, dialog .affixed .post:empty { display: none; }
+dialog .all-tps > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0 6px; }
 dialog .history { max-height: 160px; overflow: auto; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 dialog .history li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 dialog .history time { color: var(--muted); white-space: nowrap; }
@@ -377,3 +394,4 @@ body.login { align-items: center; justify-content: center; min-height: 100vh; di
 .login-box input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 14px; }
 .login-box .error { color: var(--bad); font-size: 13px; }
 .login-box button { padding: 8px; }
+dialog .affixed .pre:not(:empty) + input { padding-left: 3px; }

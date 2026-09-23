@@ -126,8 +126,15 @@ const goalMilestones = (goalId) => state.milestones.filter((m) => m.goalId === g
 const goalTouchpoints = (goalId) => state.touchpoints.filter((t) => t.goalId === goalId);
 const deriveFor = (goal) => deriveGoal(goal, goalTouchpoints(goal.id), today(), goalMilestones(goal.id));
 
-/** Needs attention: behind pace, overdue, or stale. These get the warm warning tint. */
-const needsAttention = (d) => d.pace === 'behind' || d.status === 'Overdue' || d.status === 'Stale';
+/**
+ * Card tint: green once the goal is reached (or, without a KPI, all milestones
+ * are done); warm when it needs attention (behind pace, overdue, stale); else none.
+ */
+function tone(d) {
+  if (d.status === 'Reached' || d.status === 'Done') return 'good';
+  if (d.pace === 'behind' || d.status === 'Overdue' || d.status === 'Stale') return 'warn';
+  return '';
+}
 
 function todayLong() {
   return new Date(`${today()}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -166,7 +173,7 @@ function todayHTML(lane, bands, { rule = true } = {}) {
          <time datetime="${next.date}" title="${fmtDate(next.date, { withYear: true })}" class="${next.date < today() ? 'late' : ''}">${fmtDate(next.date)} · ${relDays(next.date)}</time></span></label></div>`
     : `<div class="next none">No open milestones</div>`;
   return `<div class="today" style="${laneColorStyle(lane)}">${head}
-      <div class="today-body ${needsAttention(d) ? 'warn' : ''}">
+      <div class="today-body ${tone(d)}">
         <div class="goal-line">
           <span class="goal-name" title="${esc(current.name)}">${upcoming ? '<small>Starts ' + fmtDate(current.startDate) + ' · </small>' : ''}${esc(current.name)}</span>
           ${paceChip(current, d)}
@@ -211,7 +218,7 @@ function cardHTML(goal, lane) {
     ? `Progress from ${esc(fmtVal(d.baseline, goal.unit))}; the tick marks where today's pace expects you`
     : `Milestones checked; the tick marks how much of the time window has passed`;
   const showTick = d.phase !== 'ahead' && (!d.kpi || d.expectedToday !== null);
-  return `<article class="card ${d.phase} ${needsAttention(d) ? 'warn' : ''}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
+  return `<article class="card ${d.phase} ${tone(d)}" style="${laneColorStyle(lane)}" data-goal="${goal.id}">
       <div class="card-head">
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
         ${paceChip(goal, d)}
@@ -247,7 +254,10 @@ function render() {
     return;
   }
   const perLane = lanes.map((lane) => ({ lane, bands: laneBands(state.goals.filter((g) => g.laneId === lane.id), t) }));
-  const years = [...new Set(perLane.flatMap(({ bands }) => bands.ahead.map((g) => g.dueDate.slice(0, 4))))].sort();
+  const thisYear = t.slice(0, 4);
+  const years = [...new Set(perLane.flatMap(({ bands }) => bands.ahead.map((g) => g.dueDate.slice(0, 4))))]
+    .filter((y) => y > thisYear)
+    .sort();
   const rows = ['now', ...years, 'past'];
   const hasPast = perLane.some(({ bands }) => bands.past.length);
 
@@ -269,8 +279,9 @@ function render() {
       let goals = [];
       let body = '';
       if (row === 'now') {
-        label = 'Now';
-        goals = bands.active;
+        // The current year: everything active now, plus goals starting later but due this year.
+        label = thisYear;
+        goals = [...bands.active, ...bands.ahead.filter((g) => g.dueDate.slice(0, 4) <= thisYear)];
         if (empty) body = `<p class="empty-lane">No goals yet.</p>`;
       } else if (row === 'past') {
         if (!hasPast) return;
@@ -482,6 +493,8 @@ function milestoneModal(goalId) {
   );
 }
 
+const UNIT_AFFIX = { $: ['$', ''], '%': ['', '%'], count: ['', 'count'], days: ['', 'days'], weeks: ['', 'weeks'], score: ['', 'score'] };
+
 function touchpointModal(goalId) {
   const kpiGoals = state.goals.filter(hasKpi);
   if (!kpiGoals.length) return toast('No goals track a KPI yet. Add one with "+ Goal".');
@@ -490,35 +503,49 @@ function touchpointModal(goalId) {
     goalId ||
     kpiGoals.filter((g) => g.startDate <= t && t < g.dueDate).sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0]?.id ||
     kpiGoals[0].id;
+  const touchpointsFor = (gid) =>
+    state.touchpoints.filter((tp) => tp.goalId === Number(gid)).sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.id - a.id));
+
+  // One line about the latest touchpoint, so a repeat entry is easy to spot.
+  const lastHTML = (gid) => {
+    const goal = byId('goals', gid);
+    const last = touchpointsFor(gid)[0];
+    if (!last) {
+      return goal.baseline === null
+        ? `No touchpoints yet, and no baseline. This first one will serve as the baseline.`
+        : `No touchpoints yet. Baseline is <b>${esc(fmtVal(goal.baseline, goal.unit))}</b>.`;
+    }
+    const ago = daysBetween(last.date, today());
+    const when = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago} days ago`;
+    return `Last logged <b>${esc(fmtVal(last.value, goal.unit))}</b> on ${fmtDate(last.date, { withYear: true })} (${when})${last.note ? ` · “${esc(last.note)}”` : ''}`;
+  };
   const historyHTML = (gid) => {
     const goal = byId('goals', gid);
-    const tps = state.touchpoints
-      .filter((t) => t.goalId === Number(gid))
-      .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.id - a.id));
-    if (!tps.length) {
-      return goal.baseline === null
-        ? `<p class="hint">No touchpoints yet, and no baseline. This first one will serve as the baseline.</p>`
-        : `<p class="hint">No touchpoints yet. Baseline is ${esc(fmtVal(goal.baseline, goal.unit))}.</p>`;
-    }
-    return `<ul class="history">${tps
+    const tps = touchpointsFor(gid);
+    if (!tps.length) return '';
+    return `<details class="all-tps"><summary>All touchpoints · ${tps.length}</summary><ul class="history">${tps
       .map(
-        (t) => `<li><time>${fmtDate(t.date, { withYear: true })}</time><span class="v">${esc(fmtVal(t.value, goal.unit))}</span>
-          <span class="n">${esc(t.note)}</span><button type="button" data-action="del-tp" data-id="${t.id}" title="Delete touchpoint" aria-label="Delete touchpoint">×</button></li>`,
+        (tp) => `<li><time>${fmtDate(tp.date, { withYear: true })}</time><span class="v">${esc(fmtVal(tp.value, goal.unit))}</span>
+          <span class="n">${esc(tp.note)}</span><button type="button" data-action="del-tp" data-id="${tp.id}" title="Delete touchpoint" aria-label="Delete touchpoint">×</button></li>`,
       )
-      .join('')}</ul>`;
+      .join('')}</ul></details>`;
   };
   const unitHint = (gid) => {
     const g = byId('goals', gid);
-    return `${esc(g.kpi)} · unit ${esc(g.unit)} · target ${g.target === null ? 'not set' : esc(fmtVal(g.target, g.unit))}`;
+    return `${esc(g.kpi)} · ${g.direction === 'lower' ? 'lower' : 'higher'} is better · target ${g.target === null ? 'not set' : esc(fmtVal(g.target, g.unit))}`;
   };
+  const affix = (gid) => UNIT_AFFIX[byId('goals', gid).unit] || ['', ''];
+  const [pre, post] = affix(selected);
   openModal(
     `<h2>Log touchpoint</h2>
      <label>Goal<select name="goalId" id="tp-goal">${goalOptions(selected, { kpiOnly: true })}</select></label>
      <p class="hint" id="tp-hint">${unitHint(selected)}</p>
+     <p class="last-tp" id="tp-last">${lastHTML(selected)}</p>
      <div class="row">
-       <label>Date<input name="date" type="date" required value="${today()}"></label>
-       <label>Value<input name="value" type="number" step="any" required></label>
+       <label>Date<input name="date" id="tp-date" type="date" required value="${today()}"></label>
+       <label>Value<span class="affixed"><span class="pre" id="tp-pre">${esc(pre)}</span><input name="value" id="tp-value" type="number" step="any" required><span class="post" id="tp-post">${esc(post)}</span></span></label>
      </div>
+     <p class="dupe" id="tp-dupe" hidden></p>
      <label>Note<textarea name="note" rows="2" maxlength="5000"></textarea></label>
      <div id="tp-history">${historyHTML(selected)}</div>
      ${buttons('Log')}`,
@@ -528,11 +555,25 @@ function touchpointModal(goalId) {
     },
   );
   const sel = $('#tp-goal');
-  sel.addEventListener('change', () => {
+  const checkDupe = () => {
+    const same = touchpointsFor(sel.value).find((tp) => tp.date === $('#tp-date').value);
+    const el = $('#tp-dupe');
+    el.hidden = !same;
+    if (same) el.textContent = `There's already a touchpoint on this date (${fmtVal(same.value, byId('goals', sel.value).unit)}). Logging again adds a second one.`;
+  };
+  const refresh = () => {
+    const [p, q] = affix(sel.value);
+    $('#tp-pre').textContent = p;
+    $('#tp-post').textContent = q;
     $('#tp-hint').innerHTML = unitHint(sel.value);
+    $('#tp-last').innerHTML = lastHTML(sel.value);
     $('#tp-history').innerHTML = historyHTML(sel.value);
-  });
-  modalForm.refreshHistory = () => ($('#tp-history').innerHTML = historyHTML(sel.value));
+    checkDupe();
+  };
+  sel.addEventListener('change', refresh);
+  $('#tp-date').addEventListener('input', checkDupe);
+  modalForm.refreshHistory = refresh;
+  checkDupe();
 }
 
 // ---- actions --------------------------------------------------------------
@@ -617,6 +658,17 @@ document.addEventListener('click', async (e) => {
       return;
     }
   }
+});
+
+let pressedOutside = false;
+const outside = (e) => {
+  const r = modal.getBoundingClientRect();
+  return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+};
+modal.addEventListener('mousedown', (e) => (pressedOutside = e.target === modal && outside(e)));
+modal.addEventListener('click', (e) => {
+  if (pressedOutside && e.target === modal && outside(e)) modal.close();
+  pressedOutside = false;
 });
 
 modal.addEventListener('close', () => {

@@ -123,12 +123,16 @@ viewer's local date.
   earliest one from the lane's other active goals shows instead. Checking
   it, in the panel or on the card, updates both immediately. The date is
   in the top bar.
-- Below Today, time runs downward in rows shared by every lane: **Now**
-  (active goals, `start ≤ today < due`), then one row per due year for
-  upcoming goals, then **Past** (collapsed). Rows line up across lanes, so
+- Below Today, time runs downward in rows shared by every lane: the
+  **current year** (active goals, `start ≤ today < due`, plus later-starting
+  goals due this year), then one row per due year for upcoming goals, then
+  **Past** (collapsed). Rows line up across lanes, so
   2028 starts at the same height everywhere, leaving blank space where a
   lane has less in a given year. Goals within a row are sorted by due date.
-- Orange is reserved for goals that need attention: behind pace, overdue
-  or stale. Their cards (and Today panel) get a warm tint.
+- Card tints: warm orange for goals that need attention (behind pace,
+  overdue or stale), light green once a goal is reached (or, without a KPI,
+  every milestone is checked). The same tint shows in the Today panel.
+- Logging a touchpoint shows the goal's unit in the value box, summarizes
+  the last touchpoint, and warns if one already exists on the chosen date.
 - Under 760px wide the columns stack and the Today panels become an index
   at the top of the page.
