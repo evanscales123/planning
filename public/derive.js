@@ -160,14 +160,19 @@ export function byDue(a, b) {
 }
 
 /**
- * Split a lane's goals into the three bands of a column, each sorted by due date:
- * active (above the today line), ahead (below it) and past (collapsed at the bottom).
- * `current` is the goal the header strip features: the soonest-due active goal,
+ * Split a lane's goals into bands, each sorted by due date: active (running and
+ * not yet finished), finished (running, but already reached or done), ahead (not
+ * started) and past (due date passed). `isFinished(goal)` says whether a running
+ * goal is reached/done; finished goals don't count as active.
+ * `current` is the goal the Today panel features: the soonest-due active goal,
  * or failing that the next one ahead.
  */
-export function laneBands(goals, today) {
+export function laneBands(goals, today, isFinished = () => false) {
   const sorted = [...goals].sort(byDue);
-  const bands = { active: [], ahead: [], past: [] };
-  for (const g of sorted) bands[phaseOf(g, today)].push(g);
+  const bands = { active: [], finished: [], ahead: [], past: [] };
+  for (const g of sorted) {
+    const phase = phaseOf(g, today);
+    bands[phase === 'active' && isFinished(g) ? 'finished' : phase].push(g);
+  }
   return { ...bands, current: bands.active[0] || bands.ahead[0] || null };
 }

@@ -136,7 +136,10 @@ viewer's local date.
   A single year label sits in a left-hand column and stays pinned under the
   lane heads while you scroll through that year; the next year's label
   takes over when its row arrives.
-- A reached goal shows **Reached** in place of its pace (one or the other).
+- A reached goal shows **Reached** in place of its pace (one or the other),
+  and stops counting as active: it's never the lane's current goal and
+  isn't counted in "+ N more active goals". Its card stays in place, tinted
+  green. If a later touchpoint drops it below target, it's active again.
 - Card tints: warm orange for goals that need attention (behind pace,
   overdue or stale), light green once a goal is reached (or, without a KPI,
   every milestone is checked). The same tint shows in the Today panel.

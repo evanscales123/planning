@@ -103,3 +103,19 @@ test('goals without a KPI track milestones instead', () => {
   assert.equal(deriveGoal(g, [], '2027-01-05', ms).status, 'Overdue');
   assert.equal(deriveGoal(g, [], '2027-01-05', [{ id: 1, done: true }]).status, 'Done');
 });
+
+test('finished (reached) goals are not active and are never current', () => {
+  const t = '2026-06-01';
+  const gs = [
+    goal({ id: 1, startDate: '2026-01-01', dueDate: '2026-09-01' }),
+    goal({ id: 2, startDate: '2026-01-01', dueDate: '2026-12-01' }),
+    goal({ id: 3, startDate: '2026-08-01', dueDate: '2027-03-01' }),
+  ];
+  const b = laneBands(gs, t, (g) => g.id === 1);
+  assert.deepEqual(b.active.map((g) => g.id), [2]);
+  assert.deepEqual(b.finished.map((g) => g.id), [1]);
+  assert.equal(b.current.id, 2);
+  const all = laneBands(gs, t, (g) => g.id !== 3);
+  assert.equal(all.active.length, 0);
+  assert.equal(all.current.id, 3); // falls through to the next goal ahead
+});

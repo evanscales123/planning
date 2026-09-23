@@ -126,6 +126,7 @@ function laneColorStyle(lane) {
 const goalMilestones = (goalId) => state.milestones.filter((m) => m.goalId === goalId);
 const goalTouchpoints = (goalId) => state.touchpoints.filter((t) => t.goalId === goalId);
 const deriveFor = (goal) => deriveGoal(goal, goalTouchpoints(goal.id), today(), goalMilestones(goal.id));
+const isFinished = (d) => d.status === 'Reached' || d.status === 'Done';
 
 /**
  * Card tint: green once the goal is reached (or, without a KPI, all milestones
@@ -229,7 +230,7 @@ function cardHTML(goal, lane) {
   const ms = sortMilestones(goalMilestones(goal.id));
   const statusClass = d.status.replace(/\s+/g, '-');
   const notStarted = d.phase === 'ahead' && d.current === null;
-  const finished = d.status === 'Reached' || d.status === 'Done';
+  const finished = isFinished(d);
   const meta = [
     notStarted
       ? `<span class="status">Starts ${fmtDate(goal.startDate)}</span>`
@@ -261,7 +262,7 @@ function cardHTML(goal, lane) {
     ? `Progress from ${esc(fmtVal(d.baseline, goal.unit))}; the tick marks where today's pace expects you`
     : `Milestones checked; the tick marks how much of the time window has passed`;
   const showTick = d.phase !== 'ahead' && (!d.kpi || d.expectedToday !== null);
-  return `<article class="card ${d.phase} ${tone(d)}" style="${laneColorStyle(lane)}" data-goal="${goal.id}" data-flags="${flagsOf(goal, d).join(' ')}">
+  return `<article class="card ${isFinished(d) ? 'finished' : d.phase} ${tone(d)}" style="${laneColorStyle(lane)}" data-goal="${goal.id}" data-flags="${flagsOf(goal, d).join(' ')}">
       <div class="card-head">
         <h3><button data-action="edit-goal" data-id="${goal.id}" title="${esc(goal.description || 'Edit goal')}">${esc(goal.name)}</button></h3>
         ${paceChip(goal, d)}
@@ -297,7 +298,10 @@ function render() {
     indexNav.innerHTML = '';
     return;
   }
-  const perLane = lanes.map((lane) => ({ lane, bands: laneBands(state.goals.filter((g) => g.laneId === lane.id), t) }));
+  const perLane = lanes.map((lane) => ({
+    lane,
+    bands: laneBands(state.goals.filter((g) => g.laneId === lane.id), t, (g) => isFinished(deriveFor(g))),
+  }));
   const thisYear = t.slice(0, 4);
   const years = [...new Set(perLane.flatMap(({ bands }) => bands.ahead.map((g) => g.dueDate.slice(0, 4))))]
     .filter((y) => y > thisYear)
@@ -320,7 +324,7 @@ function render() {
     index.push(`<a href="#lane-${lane.id}">${company ? `<div class="eyebrow">${esc(company.name)}</div>` : ''}<div class="lane-title"><span class="dot" style="${style}"></span><h2>${esc(lane.name)}</h2></div>${todayHTML(lane, bands, { rule: false })}</a>`);
     cells.push(`<div class="lane-head ${col < lanes.length - 1 ? 'has-next' : ''}" id="lane-${lane.id}" style="${style};${at(0)}">${eyebrow}${title}${todayHTML(lane, bands)}</div>`);
 
-    const empty = !bands.active.length && !bands.ahead.length && !bands.past.length;
+    const empty = !bands.active.length && !bands.finished.length && !bands.ahead.length && !bands.past.length;
     rows.forEach((row, i) => {
       let label = '';
       let goals = [];
@@ -328,7 +332,7 @@ function render() {
       if (row === 'now') {
         // The current year: everything active now, plus goals starting later but due this year.
         label = thisYear;
-        goals = [...bands.active, ...bands.ahead.filter((g) => g.dueDate.slice(0, 4) <= thisYear)];
+        goals = [...bands.active, ...bands.finished, ...bands.ahead.filter((g) => g.dueDate.slice(0, 4) <= thisYear)];
         if (empty) body = `<p class="empty-lane">No goals yet.</p>`;
       } else if (row === 'past') {
         if (!hasPast) return;
